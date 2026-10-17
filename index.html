@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Goran Modelo 2D</title>
+<meta name="description" content="Hoja de personaje de Goran: giro frente/perfil/espalda, rig de 39 piezas con IK, expresiones, props y la secuencia de levantar la roca animada en SVG + JavaScript.">
+<meta name="theme-color" content="#ebe7dc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141619" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Goran<span>Modelo 2D · rig para animación</span></h1>
+    <div class="meta">
+      <span>Altura</span><b>7,9 cabezas · 1 cabeza = 81 u</b>
+      <span>Piezas</span><b id="m-parts">39 frente · 34 perfil</b>
+      <span>Vistas</span><b>frente, perfil, espalda</b>
+      <span>Motor</span><b>SVG + JS, IK de 2 huesos</b>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="stagecol">
+      <div class="sheet">
+        <div class="tabs" role="tablist" aria-label="Vista">
+          <button role="tab" id="v-front" aria-selected="true" data-view="front">Frente</button>
+          <button role="tab" id="v-side" aria-selected="false" data-view="side">Perfil</button>
+          <button role="tab" id="v-back" aria-selected="false" data-view="back">Espalda</button>
+        </div>
+        <div class="stage" id="stage">
+          <span class="corner tl" id="c-view">Vista frontal</span>
+          <span class="corner tr" id="c-anim">idle</span>
+        </div>
+        <div class="scrub">
+          <label for="scrub">Fotograma</label>
+          <input type="range" id="scrub" min="0" max="1000" value="0">
+          <output id="scrubout" for="scrub">0.00</output>
+        </div>
+        <div class="controls">
+          <div class="row" id="anims" aria-label="Animación"><small>Animación</small></div>
+          <div class="row" id="exprs" aria-label="Expresión"><small>Expresión</small></div>
+          <div class="row"><small>Capas y props</small>
+            <button class="tg" id="t-grid" aria-pressed="true">Rejilla</button>
+            <button class="tg" id="t-piv" aria-pressed="false">Pivotes</button>
+            <button class="tg" id="t-exp" aria-pressed="false">Despiece</button>
+            <button class="tg" id="t-hammer" aria-pressed="false">Maza</button>
+            <button class="tg" id="t-flask" aria-pressed="false">Recipiente</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet info">
+      <section class="pad">
+        <h2>Proporciones <small>suelo en y = 680</small></h2>
+        <div class="props">
+          <div class="prop"><b>7,9</b><span>cabezas de alto, pelo a suela</span></div>
+          <div class="prop"><b>3,4</b><span>cabezas de hombro a hombro</span></div>
+          <div class="prop"><b>1,9</b><span>cabezas de ancho en el cinturón</span></div>
+          <div class="prop"><b>2,7</b><span>cabezas de separación entre botas</span></div>
+        </div>
+        <ul class="traits">
+          <li>Melena ondulada castaña hasta la nuca, recogida en coleta</li>
+          <li>Cinta de cuero en la frente</li>
+          <li>Barba corta y bigote, cejas pesadas, ojos color avellana</li>
+          <li>Hombros y brazos enormes, cuello ancho</li>
+          <li>Túnica de lino sin mangas, escote en V, bordes deshilachados</li>
+          <li>Colgante rectangular de latón con cordón doble</li>
+          <li>Cinturón con hebilla de hierro sobre faja roja</li>
+          <li>Fajín rojo anudado en su cadera izquierda, dos colas</li>
+          <li>Vendas en antebrazos y espinillas, pantalón abombado</li>
+          <li>Botas de cuero con cordones y suela gruesa</li>
+        </ul>
+      </section>
+      <section class="pad">
+        <h2>Paleta <small>base · luz · sombra · sombra profunda</small></h2>
+        <div class="mats" id="mats"></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="sheet pad">
+    <h2>Giro <small>rejilla en cabezas</small></h2>
+    <div class="turn" id="turn"></div>
+  </section>
+
+  <section class="sheet pad">
+    <div class="seqhead">
+      <h2>Levantamiento de roca <small>6 poses clave · toca una para verla en el escenario</small></h2>
+      <button class="btn" id="playseq">Reproducir secuencia</button>
+    </div>
+    <div class="seq" id="seq"></div>
+  </section>
+
+  <div class="two">
+    <section class="sheet pad">
+      <h2>Expresiones</h2>
+      <div class="busts" id="busts"></div>
+    </section>
+    <section class="sheet pad">
+      <h2>Props</h2>
+      <div class="kit" id="kit"></div>
+    </section>
+  </div>
+
+  <section class="sheet pad">
+    <h2>Piezas <small id="partsnote">vista frontal · toca una para aislarla en el escenario</small></h2>
+    <div class="parts" id="parts"></div>
+  </section>
+
+  <section class="sheet pad">
+    <div class="rigcols">
+      <div>
+        <h2>Rig</h2>
+        <p class="note"><b>R</b> es la derecha anatómica de Goran (izquierda del espectador en la vista frontal). Las piezas L reutilizan el dibujo R reflejado. Cada pieza gira y escala sobre su pivote y arrastra a sus hijas; <code>qx/qy</code> escalan solo el dibujo de esa pieza, útil para encoger el torso al inclinarse sin acortar los brazos.</p>
+        <p class="note">Cadenas IK: <code>armR</code>, <code>armL</code>, <code>legR</code>, <code>legL</code>. Los codos y rodillas se doblan hacia fuera en frente y espalda; en perfil las rodillas van hacia delante y los codos hacia atrás.</p>
+        <div class="tbl"><table>
+          <thead><tr><th>id</th><th>padre</th><th>pivote</th><th>variantes</th><th>pieza</th></tr></thead>
+          <tbody id="rigrows"></tbody>
+        </table></div>
+      </div>
+      <div>
+        <div class="copyrow"><h2>Uso en JS</h2><button class="btn" id="copybtn">Copiar</button></div>
+        <pre id="usage"></pre>
+        <p class="note" style="margin-top:10px">Para pedirle animaciones nuevas a Opus, pásale <code>goran.js</code> y describe la acción en poses clave: qué piezas giran, dónde deben estar las manos o los pies (IK) y en qué momento. Las animaciones son datos en <code>Goran.ANIMS</code>, así que no hace falta tocar el dibujo.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="js/goran.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
