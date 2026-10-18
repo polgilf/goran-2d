@@ -21,35 +21,65 @@
     }
   };
 
-  // Levantamiento de roca: 6 poses clave (preparación → bloqueo), sostener, soltar.
+  // Levantamiento de roca (piedra al pecho y press por encima de la cabeza): 6 poses clave, sostener, bajar al pecho y soltar.
   const KEYPOSES = [
     { id: 'prep', name: 'Preparación', t: 0.14 }, { id: 'lift', name: 'Despegue', t: 0.28 }, { id: 'lap', name: 'Al regazo', t: 0.38 },
-    { id: 'chest', name: 'Al pecho', t: 0.50 }, { id: 'drive', name: 'Impulso', t: 0.58 }, { id: 'lock', name: 'Bloqueo', t: 0.66 }
+    { id: 'chest', name: 'Al pecho', t: 0.50 }, { id: 'drive', name: 'Impulso', t: 0.56 }, { id: 'lock', name: 'Bloqueo', t: 0.66 }
   ];
-  // Agarre de cada mano relativo al centro de la roca (s = -1 mano der., +1 mano izq.)
-  const ikArm = s => [[0, { x: 96 * s, y: -30, w: 0 }],
-    [0.1, { x: 96 * s, y: -30, w: 0 }], [0.14, { x: 96 * s, y: -30, w: 1 }], [0.28, { x: 94 * s, y: -34, w: 1 }], [0.38, { x: 80 * s, y: 0, w: 1 }],
-    [0.5, { x: 64 * s, y: 40, w: 1 }], [0.58, { x: s < 0 ? -56 : 58, y: s < 0 ? 64 : 58, w: 1 }], [0.66, { x: 72 * s, y: 44, w: 1 }], [0.84, { x: 64 * s, y: 40, w: 1 }],
-    [0.875, { x: 64 * s, y: 40, w: 1 }], [0.9, { x: 64 * s, y: 40, w: 0 }], [1, { x: 64 * s, y: 40, w: 0 }]];
+  // Brazos con IK 3D: mano respecto al centro de la roca (x, y), su profundidad z (+ hacia el espectador) y el polo del codo
+  // (px, py, pz). El codo sale siempre por fuera y el húmero se escorza cuando apunta al frente, en vez de dar la vuelta.
+  // Secuencia de cada brazo, del regazo al bloqueo:
+  //  1. el húmero se abre (codos fuera y atrás) mientras las manos se meten bajo la roca;
+  //  2. sube el antebrazo: la roca rueda por el tronco hasta el pecho;
+  //  3. el húmero se cierra: codos abajo y antebrazos bajo la roca (rack);
+  //  4. flexión y empuje de piernas: el húmero se vuelve a abrir (codos fuera y arriba) a la vez que sube el antebrazo;
+  //  5. extensión hasta el bloqueo. Al bajar se recorre el mismo camino al revés, más despacio.
+  //          t       x    y    z    px    py    pz    w
+  const ARM_KEYS = [
+    [0,      92, -26,  20,  1,  0.2, -0.6, 0],
+    [0.1,    92, -26,  20,  1,  0.2, -0.6, 0],
+    [0.14,   92, -26,  20,  1,  0.2, -0.6, 1],   // agarre a los lados de la roca, brazos casi rectos
+    [0.2,    90, -24,  20,  1,  0.2, -0.6, 1],
+    [0.28,   88, -28,  26,  1,  0.3, -0.6, 1],   // despegue
+    [0.38,   80,   0,  44,  1,  0.3, -0.7, 1],   // al regazo
+    [0.42,   62,  36,  40,  1,  0.1, -0.3, 1],   // 1. húmero fuera, manos bajo la roca
+    [0.46,   60,  46,  48,  1,  0.4, -0.2, 1],   // 2. sube el antebrazo
+    [0.5,    58,  50,  45,  0.45, 1, -0.1,  1],  // 3. rack: húmero cerrado, codos abajo
+    [0.53,   58,  50,  45,  0.45, 1, -0.1,  1],  //    flexión
+    [0.555,  82,  40, 120,  1,  0.2,  0.25, 1],  // 4. empuje: húmero abierto a la altura del hombro, antebrazo hacia dentro y arriba
+    [0.6,    74,  44,  60,  1,  0,    0.1,  1],
+    [0.66,   72,  44,  16,  1, -0.1,  0,    1],  // 5. bloqueo
+    [0.76,   72,  44,  16,  1, -0.1,  0,    1],
+    [0.8,    82,  40, 120,  1,  0.2,  0.25, 1],  // bajada: el mismo camino al revés
+    [0.84,   58,  50,  45,  0.45, 1, -0.1,  1],  // de vuelta al rack
+    [0.875,  58,  50,  45,  0.45, 1, -0.1,  1],
+    [0.9,    58,  50,  45,  0.45, 1, -0.1,  0],  // suelta
+    [1,      58,  50,  45,  0.45, 1, -0.1,  0]
+  ];
+  const ikArm = s => ARM_KEYS.map(([t, x, y, z, px, py, pz, w]) => [t, { x: x * s, y, z, px: px * s, py, pz, w }]);
   const gripTrack = [[0, { v: 'relax' }], [0.12, { v: 'grip' }], [0.885, { v: 'relax' }]];
   ANIMS.front.liftRock = {
     duration: 11000, then: 'idle',
     tracks: {
-      rock: [[0, { o: 1 }], [0.2, { o: 1 }], [0.28, { o: 1, dy: -20, a: 4 }], [0.38, { o: 1, dy: -126, a: 12 }], [0.5, { o: 1, dy: -346, a: 20 }],
-        [0.58, { o: 1, dx: -40, dy: -606, a: 26 }], [0.66, { o: 1, dy: -656, a: 30 }], [0.71, { o: 1, dx: 4, dy: -660, a: 32 }], [0.76, { o: 1, dx: -2, dy: -656, a: 30 }],
+      rock: [[0, { o: 1 }], [0.2, { o: 1 }], [0.28, { o: 1, dy: -20, a: 4 }], [0.38, { o: 1, dy: -126, a: 12 }], [0.42, { o: 1, dy: -170, a: 13 }],
+        [0.5, { o: 1, dy: -346, a: 20 }], [0.53, { o: 1, dy: -322, a: 20 }], [0.555, { o: 1, dx: -6, dy: -490, a: 24 }], [0.6, { o: 1, dx: 4, dy: -630, a: 28 }],
+        [0.66, { o: 1, dy: -656, a: 30 }], [0.71, { o: 1, dx: 4, dy: -660, a: 32 }], [0.76, { o: 1, dx: -2, dy: -656, a: 30 }], [0.8, { o: 1, dy: -490, a: 26 }],
         [0.84, { o: 1, dy: -346, a: 22 }], [0.88, { o: 1, dy: -348, a: 22 }], [0.91, { o: 1, dy: 0, a: 40 }, 'in'], [0.93, { o: 1, dy: -12, a: 42 }, 'out'], [0.95, { o: 1, dy: 0, a: 44 }, 'in'],
         [0.965, { o: 1, a: 44 }], [1, { o: 1, dx: 340, a: 300 }, 'in']],
-      pelvis: [[0, {}], [0.06, {}], [0.14, { dy: 125 }], [0.2, { dy: 125 }], [0.28, { dy: 110 }], [0.38, { dy: 96 }], [0.5, {}], [0.58, { dy: 26 }], [0.66, { dy: -2 }],
-        [0.76, {}], [0.84, { dy: 6 }], [0.88, { dy: 8 }], [0.91, { dy: 22 }, 'out'], [0.96, {}], [1, {}]],
-      torso: [[0, {}], [0.06, {}], [0.14, { qy: 0.55, dy: 12 }], [0.2, { qy: 0.55, dy: 12 }], [0.28, { qy: 0.62, dy: 10 }], [0.38, { qy: 0.86, dy: 4 }], [0.5, {}],
-        [0.58, { a: 5, qy: 0.98 }], [0.66, {}], [0.71, { a: -1.5 }], [0.76, { a: 1 }], [0.84, {}], [0.91, { qy: 0.94, dy: 4 }], [0.96, {}], [1, {}]],
+      pelvis: [[0, {}], [0.06, {}], [0.14, { dy: 125 }], [0.2, { dy: 125 }], [0.28, { dy: 110 }], [0.38, { dy: 96 }], [0.42, { dy: 92 }], [0.5, {}],
+        [0.53, { dy: 24 }], [0.565, { dy: -4 }], [0.6, { dy: 12 }], [0.66, { dy: -2 }], [0.76, {}], [0.8, { dy: 8 }], [0.84, { dy: 12 }], [0.88, { dy: 8 }],
+        [0.91, { dy: 22 }, 'out'], [0.96, {}], [1, {}]],
+      torso: [[0, {}], [0.06, {}], [0.14, { qy: 0.55, dy: 12 }], [0.2, { qy: 0.55, dy: 12 }], [0.28, { qy: 0.62, dy: 10 }], [0.38, { qy: 0.86, dy: 4 }],
+        [0.42, { qy: 0.84, dy: 4 }], [0.5, {}], [0.53, { qy: 0.98 }], [0.565, { a: 3, qy: 1.01 }], [0.6, { a: -1 }], [0.66, {}], [0.71, { a: -1.5 }], [0.76, { a: 1 }],
+        [0.8, { a: 1 }], [0.84, {}], [0.91, { qy: 0.94, dy: 4 }], [0.96, {}], [1, {}]],
       neck: [[0, {}], [0.14, { dy: 4 }], [0.28, {}], [1, {}]],
-      head: [[0, {}], [0.14, { dy: 4 }], [0.28, { dy: -2 }], [0.38, { a: 6 }], [0.5, {}], [0.58, { a: 10, dy: 4 }], [0.66, { dy: 6 }], [0.76, { dy: 6 }], [0.84, {}], [0.94, { a: -3 }], [1, {}]],
+      head: [[0, {}], [0.14, { dy: 4 }], [0.28, { dy: -2 }], [0.38, { a: 6 }], [0.5, {}], [0.53, { dy: 2 }], [0.565, { a: -4, dy: 6 }], [0.6, { a: 4, dy: 6 }],
+        [0.66, { dy: 6 }], [0.76, { dy: 6 }], [0.8, { a: -3, dy: 4 }], [0.84, {}], [0.94, { a: -3 }], [1, {}]],
       upperArmR: [[0, {}], [0.62, {}], [0.66, { dy: -10 }], [0.78, { dy: -10 }], [0.84, {}], [1, {}]],
       upperArmL: [[0, {}], [0.62, {}], [0.66, { dy: -10 }], [0.78, { dy: -10 }], [0.84, {}], [1, {}]],
       handR: gripTrack, handL: gripTrack,
-      hemR: [[0, {}], [0.14, { a: 22 }], [0.28, { a: 18 }], [0.38, { a: 12 }], [0.5, { a: -2 }], [0.58, { a: 4 }], [0.66, {}], [0.91, { a: 6 }], [0.96, { a: -2 }], [1, {}]],
-      hemL: [[0, {}], [0.14, { a: -22 }], [0.28, { a: -18 }], [0.38, { a: -12 }], [0.5, { a: 2 }], [0.58, { a: -4 }], [0.66, {}], [0.91, { a: -6 }], [0.96, { a: 2 }], [1, {}]],
+      hemR: [[0, {}], [0.14, { a: 22 }], [0.28, { a: 18 }], [0.38, { a: 12 }], [0.5, { a: -2 }], [0.53, { a: 3 }], [0.565, { a: 5 }], [0.66, {}], [0.91, { a: 6 }], [0.96, { a: -2 }], [1, {}]],
+      hemL: [[0, {}], [0.14, { a: -22 }], [0.28, { a: -18 }], [0.38, { a: -12 }], [0.5, { a: 2 }], [0.53, { a: -3 }], [0.565, { a: -5 }], [0.66, {}], [0.91, { a: -6 }], [0.96, { a: 2 }], [1, {}]],
       sashTailA: [[0, {}], [0.14, { a: -10 }], [0.38, { a: -6 }], [0.5, { a: 4 }], [0.6, { a: -5 }], [0.7, { a: 3 }], [0.92, { a: -6 }], [0.97, { a: 3 }], [1, {}]],
       sashTailB: [[0, {}], [0.16, { a: -8 }], [0.4, { a: -4 }], [0.52, { a: 5 }], [0.62, { a: -4 }], [0.72, { a: 3 }], [0.93, { a: -5 }], [0.98, { a: 2 }], [1, {}]],
       pendant: [[0, {}], [0.14, { a: -6 }], [0.5, { a: 4 }], [0.6, { a: -3 }], [1, {}]],
@@ -62,6 +92,8 @@
       legL: [[0, { x: 305, y: 612, w: 1 }], [0.04, { x: 305, y: 612, w: 1 }], [0.07, { x: 320, y: 600, w: 1 }], [0.1, { x: 338, y: 612, w: 1 }], [0.95, { x: 338, y: 612, w: 1 }], [0.98, { x: 320, y: 600, w: 1 }], [1, { x: 305, y: 612, w: 1 }]]
     },
     flat: { footR: 1, footL: 1 },
+    // Mientras las manos trabajan delante del cuerpo, de espaldas los brazos (y la roca) quedan detrás de la espalda
+    layers: [[0, {}], [0.105, { armR: 'fore', armL: 'fore' }], [0.895, {}]],
     expr: [[0, 'neutral'], [0.1, 'resoplido'], [0.22, 'esfuerzo'], [0.8, 'esfuerzo'], [0.86, 'resoplido'], [0.94, 'contento']]
   };
 
@@ -120,7 +152,7 @@
   ANIMS.front.wave = {
     duration: 2600, then: 'idle',
     tracks: {
-      handL: [[0, { v: 'relax' }], [0.14, { v: 'grip' }], [0.86, { v: 'relax' }]],
+      handL: [[0, { v: 'relax' }], [0.14, { v: 'open' }], [0.86, { v: 'relax' }]],
       head: [[0, {}], [0.2, { a: -4 }], [0.8, { a: -4 }], [1, {}]],
       torso: [[0, {}], [0.2, { a: -2 }], [0.8, { a: -2 }], [1, {}]],
       sashTailA: [[0, {}], [0.3, { a: 3 }], [0.6, { a: -2 }], [1, {}]],

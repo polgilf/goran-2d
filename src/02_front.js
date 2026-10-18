@@ -4,20 +4,32 @@
   const F = {};
 
   // ── Piernas ──
+  // Articulaciones redondeadas: en cada articulación el extremo de la pieza es un arco centrado en su pivote, así al
+  // girar no asoman esquinas. Rodilla (pivote 164,508): el muslo acaba en media luna de r ≈ 37,5 y el puño del pantalón,
+  // que va delante, arranca con una cúpula que cabe en ese círculo; la cúpula repite el detalle del muslo de esa franja
+  // (KNEE_FILL_R) para que en reposo no se note la costura. Cadera (184,402): el muslo arranca en cúpula sin contorno,
+  // tapada por el faldón.
   F.pelvis = () => shape('M148 366 L302 366 L304 404 C296 424 262 436 225 438 C188 436 154 424 146 404 Z', C.trousers,
     fill('M146 366 L304 366 L304 398 C260 404 190 404 146 398 Z', C.trousersDeep, .5) +
     line('M225 396 C225 414 225 426 225 438', C.trousersDeep, 1.6));
 
-  F.thighR = (view) => shape('M150 372 C144 404 136 440 132 470 C129 492 127 508 128 526 L202 526 C203 508 206 486 212 462 C217 444 222 430 228 418 L228 372 Z', C.trousers,
-    fill('M150 372 C144 404 136 440 132 470 C129 492 127 508 128 526 L139 526 C139 502 142 474 147 448 C151 424 155 398 160 372 Z', C.trousersShade) +
-    fill('M196 526 C198 500 202 476 208 456 C214 440 220 428 228 418 L234 418 L234 526 Z', C.trousersShade) +
-    fill('M140 370 L234 370 L234 410 C210 418 186 420 168 414 C156 410 146 404 140 400 Z', C.trousersDeep, .55) +
+  const THIGH_R = 'M144.2 401.7 C139.6 425.1 134.8 449 132 470 C129.5 488 127.5 498 127.5 508 C127.5 528.2 143.8 545.5 164 545.5' +
+    ' C185.5 545.5 203 528.2 203 508 C203 496 206 484 212 462 C217 444 222 430 228 418 L228 402';
+  const thighDetailR = (view) =>
+    fill('M150 372 C144 404 136 440 132 470 C129 492 120 520 120 552 L143 552 C140 540 139 532 139 526 C139 502 142 474 147 448 C151 424 155 398 160 372 Z', C.trousersShade) +
+    fill('M194 552 C195 540 196 532 196 526 C198 500 202 476 208 456 C214 440 220 428 228 418 L234 418 L234 552 Z', C.trousersShade) +
+    fill('M136 350 L234 350 L234 410 C210 418 186 420 168 414 C156 410 146 404 140 400 Z', C.trousersDeep, .55) +
     fill(rib([162, 432, 160, 458, 158, 484, 156, 510], 11, 3), C.trousersLight, .55) +
     line('M208 444 C192 456 176 468 160 478', C.trousersDeep, 1.6, .75) +
     line('M204 472 C190 484 178 492 166 498', C.trousersDeep, 1.4, .65) +
     line('M200 500 C190 506 180 512 170 516', C.trousersDeep, 1.3, .6) +
     (view === 'back' ? line('M222 420 C206 428 186 430 166 426', C.trousersDeep, 1.6, .7) : '') +
-    line('M226 418 C224 460 224 500 222 526', C.trousersDeep, 1, .5, '3 3'));
+    line('M226 418 C224 460 224 500 222 526', C.trousersDeep, 1, .5, '3 3');
+  F.thighR = (view) => shape(THIGH_R + ' C228 377.7 208.3 358 184 358 C162 358 144.2 377.5 144.2 401.7 Z', C.trousers, thighDetailR(view), 0) +
+    line(THIGH_R, OUT, 2.2);
+  // El detalle del muslo entre y = 472 y 500 (banda de sombra, brillo y pliegue), recortado a mano a esa franja
+  const KNEE_FILL_R = fill('M118 472 L143 472 C142 478 141 488 140 500 L118 500 Z', C.trousersShade) +
+    fill(rib([158.6, 476, 158, 484, 157.4, 492, 156.8, 500], 6.5, 4), C.trousersLight, .55) + line('M204 472 C190 484 178 492 166 498', C.trousersDeep, 1.4, .65);
 
   F.shinR = (view) => {
     const wraps = 'M124 536 C121 562 124 594 128 616 L165 617 C166 596 170 568 172 536 Z';
@@ -32,10 +44,12 @@
       fill('M118 548 L132 548 C128 570 128 594 132 620 L118 620 Z', C.wrapsShade, .6) +
       strokes(31, 18, [124, 552, 44, 64], 3, 0, C.wrapsDeep, .7, .5), 1.9);
     const loose = shape(rib([128, 598, 122, 604, 119, 610, 118, 618], 8, 6, true), C.wraps, line('M126 600 L120 616', C.wrapsShade, 1.2), 1.4);
-    const cuffD = 'M128 500 C122 514 118 528 120 542' + fray([[120, 542], [134, 552], [150, 549], [168, 554], [186, 551], [200, 545]], 3, 7, 35, 1) + ' C206 532 206 516 202 500';
-    const cuff = shape(cuffD + ' Z', C.trousers,
+    const cuffD = 'M126.5 508 C123 518 118.5 530 120 542' + fray([[120, 542], [134, 552], [150, 549], [168, 554], [186, 551], [200, 545]], 3, 7, 35, 1) + ' C206 532 205.5 518 201.5 508';
+    const dome = ' C200.5 496 194.5 486 184 480.5 C175 476 153 476 144 480.5 C133.5 486 127.5 496 126.5 508 Z';
+    const cuff = shape(cuffD + dome, C.trousers,
+      KNEE_FILL_R +
       fill('M112 530 C124 546 140 550 152 547 C168 551 188 550 204 540 L212 570 L106 570 Z', C.trousersDeep, .55) +
-      fill('M178 496 L210 496 L210 560 C198 560 190 556 186 548 C190 530 186 512 178 496 Z', C.trousersShade, .8) +
+      fill('M178 500 L210 500 L210 560 C198 560 190 556 186 548 C190 530 186 512 178 500 Z', C.trousersShade, .8) +
       fill(rib([136, 506, 130, 518, 128, 532, 132, 544], 9, 3), C.trousersLight, .5) +
       line('M124 522 C138 532 158 528 174 534 C184 537 196 534 204 527', C.trousersDeep, 1.4, .8) +
       line('M150 549 C152 542 156 536 162 532', C.trousersDeep, 1.2, .7), 0) + line(cuffD, OUT, 2.2);
@@ -55,7 +69,7 @@
       line('M106 640 C114 636 124 638 134 644', C.bootsDeep, 1.2, .7) +
       line('M112 652 C122 648 134 650 146 656', C.bootsDeep, 1.1, .5) +
       strokes(77, 10, [80, 610, 90, 60], 4, 30, C.bootsDeep, .8, .45) + laces) +
-      shape('M106 597 L174 595 L173 611 L109 613 Z', C.boots, fill('M106 605 L174 603 L174 613 L106 615 Z', C.bootsShade, .8) + line('M110 600 L170 598', C.bootsLight, 1, .6), 1.9) +
+      shape('M106 596 C127 600 153 600 174 594 L173 610 C153 615 128 616 109 612 Z', C.boots, fill('M104 604 C127 608 153 608 176 602 L176 618 L104 618 Z', C.bootsShade, .8) + line('M110 599 C130 602.5 150 602.5 170 597.5', C.bootsLight, 1, .6), 1.9) +
       shape('M68 671 L178 671 L178 684 L80 684 C72 684 67 679 68 671 Z', C.sole, line('M74 676 L176 676', C.bootsShade, .9, .8, '3 2.5'), 1.9);
   };
 
@@ -333,7 +347,30 @@
       finger([82, 410, 82, 425, 83, 439, 84, 452], 12.5) + finger([95, 408, 97, 421, 99, 433, 101, 445], 12) +
       shape(rib([104, 382, 112, 390, 118, 398, 122, 408], 13, 10, true), C.skin, '', 1.7) +
       nail(51, 437) + nail(67, 447) + nail(84, 450) + nail(101, 443) + nail(121, 406, 60);
-    return { relax, fist, grip };
+    // Mano abierta (saludo). Misma silueta por las dos caras: de frente se ve la palma (pliegues y yemas) y de espaldas el
+    // dorso (nudillos, tendones y uñas); como la vista de espalda refleja el rig, sale especular. El pulgar va por fuera en
+    // reposo, de modo que con el antebrazo hacia arriba apunta a la cabeza, como al saludar con la palma por delante.
+    const open = (() => {
+      const back = view === 'back';
+      const at = (p, t) => { const m = 1 - t; return [m * m * m * p[0] + 3 * m * m * t * p[2] + 3 * m * t * t * p[4] + t * t * t * p[6], m * m * m * p[1] + 3 * m * m * t * p[3] + 3 * m * t * t * p[5] + t * t * t * p[7]]; };
+      const dir = (p, t) => { const m = 1 - t; return [3 * m * m * (p[2] - p[0]) + 6 * m * t * (p[4] - p[2]) + 3 * t * t * (p[6] - p[4]), 3 * m * m * (p[3] - p[1]) + 6 * m * t * (p[5] - p[3]) + 3 * t * t * (p[7] - p[5])]; };
+      const across = (p, t, w) => { const [x, y] = at(p, t), [dx, dy] = dir(p, t), l = Math.hypot(dx, dy); return `M${n1(x + dy / l * w)} ${n1(y - dx / l * w)} L${n1(x - dy / l * w)} ${n1(y + dx / l * w)}`; };
+      const tipNail = (p, w) => { const [x, y] = at(p, .84), [dx, dy] = dir(p, .84); return ell(n1(x), n1(y), n1(w * .27), n1(w * .36), C.skinLight, .95, n1(Math.atan2(-dx, dy) * 180 / Math.PI)); };
+      const digit = (p, w0, w1) => shape(rib(p, w0, w1, true), C.skin,
+        fill(rib([p[0] - w0 * .3, p[1], p[2] - w0 * .3, p[3], p[4] - w0 * .3, p[5], p[6] - w0 * .3, p[7]], w0 * .4, w1 * .3), C.skinShade, .55) +
+        (back ? tipNail(p, w1) : line(across(p, .4, w0 * .3) + ' ' + across(p, .72, w1 * .3), C.skinShade, .9, .85)), 1.6);
+      let s = digit([58, 380, 50, 390, 42, 399, 35, 408], 14, 10.4);
+      [[[63, 405, 59, 421, 56, 436, 53, 450], 12, 10.2], [[75.5, 407, 74.5, 424, 73.5, 440, 73.5, 456], 12.6, 10.8],
+        [[88, 407, 90, 423, 92, 438, 95, 452], 12, 10.2], [[99, 403, 102, 416, 105, 428, 108, 439], 10.6, 9]].forEach(([p, w0, w1]) => { s += digit(p, w0, w1); });
+      return s + shape('M54 370 L104 370 C108 383 109 397 106 409 C96 414 66 415 56 409 C50 397 50 382 54 370 Z', C.skin,
+        fill('M44 368 L60 368 C57 386 57 398 60 412 L44 412 Z', C.skinShade) +
+        (back
+          ? ell(84, 390, 13, 8, C.skinLight, .4) + line('M68 377 L63 403 M76 377 L75 405 M84 377 L87 405 M91 377 L98 401', C.skinShade, .8, .5) +
+            ell(63, 405, 4, 2.2, C.skinLight, .6) + ell(75, 407, 4.2, 2.2, C.skinLight, .6) + ell(87, 407, 4, 2.2, C.skinLight, .6) + ell(98, 404, 3.4, 2, C.skinLight, .6)
+          : ell(84, 388, 12, 7, C.skinLight, .45) + line('M57 401 C66 399 72 389 72 375', C.skinShade, 1.1, .85) +
+            line('M106 397 C97 401 86 402 76 399', C.skinShade, 1, .8) + line('M60 396 C70 392 82 391 92 393', C.skinShade, .9, .6)), 2);
+    })();
+    return { relax, fist, grip, open };
   };
 
   // ── Props ──
