@@ -6,8 +6,12 @@
  *  - Vista frontal/espalda: eje x = 225, suelo y = 680, 1 cabeza ≈ 81 u (≈ 7,9 cabezas de alto).
  *  - Vista de perfil (mira a la izquierda): mismas alturas; su eje vertical está en x ≈ 580 del espacio de rig.
  *  - "R" = derecha anatómica de Goran (izquierda del espectador en la vista frontal); "L" = su izquierda.
- *  - Cada pieza es un <g data-part> anidado. Canales por pieza: a (grados, horario), dx, dy, sx, sy,
- *    qx/qy (escala solo del dibujo de la pieza, sin arrastrar a los hijos), o (opacidad), v (variante de dibujo).
+ *  - Cada pieza es un <g data-part> hermano de las demás, dibujado en el orden de capas de su vista (VIEWS[v].layers)
+ *    con su matriz de mundo: la jerarquía decide cómo se mueve y las capas qué tapa a qué. Canales por pieza:
+ *    a (grados, horario), dx, dy, sx, sy, qx/qy (escala solo del dibujo de la pieza, sin arrastrar a los hijos),
+ *    k (escorzo a lo largo del hueso), o (opacidad, se hereda), v (variante de dibujo).
+ *  - IK de dos huesos plano o 3D: con z (profundidad del objetivo) y polo del codo (px, py, pz) se resuelve en 3D y se
+ *    proyecta, de modo que el codo no da la vuelta y el hueso que apunta al espectador se escorza (k).
  */
 (function (root) {
   'use strict';
@@ -130,20 +134,32 @@
   const F = {};
 
   // ── Piernas ──
+  // Articulaciones redondeadas: en cada articulación el extremo de la pieza es un arco centrado en su pivote, así al
+  // girar no asoman esquinas. Rodilla (pivote 164,508): el muslo acaba en media luna de r ≈ 37,5 y el puño del pantalón,
+  // que va delante, arranca con una cúpula que cabe en ese círculo; la cúpula repite el detalle del muslo de esa franja
+  // (KNEE_FILL_R) para que en reposo no se note la costura. Cadera (184,402): el muslo arranca en cúpula sin contorno,
+  // tapada por el faldón.
   F.pelvis = () => shape('M148 366 L302 366 L304 404 C296 424 262 436 225 438 C188 436 154 424 146 404 Z', C.trousers,
     fill('M146 366 L304 366 L304 398 C260 404 190 404 146 398 Z', C.trousersDeep, .5) +
     line('M225 396 C225 414 225 426 225 438', C.trousersDeep, 1.6));
 
-  F.thighR = (view) => shape('M150 372 C144 404 136 440 132 470 C129 492 127 508 128 526 L202 526 C203 508 206 486 212 462 C217 444 222 430 228 418 L228 372 Z', C.trousers,
-    fill('M150 372 C144 404 136 440 132 470 C129 492 127 508 128 526 L139 526 C139 502 142 474 147 448 C151 424 155 398 160 372 Z', C.trousersShade) +
-    fill('M196 526 C198 500 202 476 208 456 C214 440 220 428 228 418 L234 418 L234 526 Z', C.trousersShade) +
-    fill('M140 370 L234 370 L234 410 C210 418 186 420 168 414 C156 410 146 404 140 400 Z', C.trousersDeep, .55) +
+  const THIGH_R = 'M144.2 401.7 C139.6 425.1 134.8 449 132 470 C129.5 488 127.5 498 127.5 508 C127.5 528.2 143.8 545.5 164 545.5' +
+    ' C185.5 545.5 203 528.2 203 508 C203 496 206 484 212 462 C217 444 222 430 228 418 L228 402';
+  const thighDetailR = (view) =>
+    fill('M150 372 C144 404 136 440 132 470 C129 492 120 520 120 552 L143 552 C140 540 139 532 139 526 C139 502 142 474 147 448 C151 424 155 398 160 372 Z', C.trousersShade) +
+    fill('M194 552 C195 540 196 532 196 526 C198 500 202 476 208 456 C214 440 220 428 228 418 L234 418 L234 552 Z', C.trousersShade) +
+    fill('M136 350 L234 350 L234 410 C210 418 186 420 168 414 C156 410 146 404 140 400 Z', C.trousersDeep, .55) +
     fill(rib([162, 432, 160, 458, 158, 484, 156, 510], 11, 3), C.trousersLight, .55) +
     line('M208 444 C192 456 176 468 160 478', C.trousersDeep, 1.6, .75) +
     line('M204 472 C190 484 178 492 166 498', C.trousersDeep, 1.4, .65) +
     line('M200 500 C190 506 180 512 170 516', C.trousersDeep, 1.3, .6) +
     (view === 'back' ? line('M222 420 C206 428 186 430 166 426', C.trousersDeep, 1.6, .7) : '') +
-    line('M226 418 C224 460 224 500 222 526', C.trousersDeep, 1, .5, '3 3'));
+    line('M226 418 C224 460 224 500 222 526', C.trousersDeep, 1, .5, '3 3');
+  F.thighR = (view) => shape(THIGH_R + ' C228 377.7 208.3 358 184 358 C162 358 144.2 377.5 144.2 401.7 Z', C.trousers, thighDetailR(view), 0) +
+    line(THIGH_R, OUT, 2.2);
+  // El detalle del muslo entre y = 472 y 500 (banda de sombra, brillo y pliegue), recortado a mano a esa franja
+  const KNEE_FILL_R = fill('M118 472 L143 472 C142 478 141 488 140 500 L118 500 Z', C.trousersShade) +
+    fill(rib([158.6, 476, 158, 484, 157.4, 492, 156.8, 500], 6.5, 4), C.trousersLight, .55) + line('M204 472 C190 484 178 492 166 498', C.trousersDeep, 1.4, .65);
 
   F.shinR = (view) => {
     const wraps = 'M124 536 C121 562 124 594 128 616 L165 617 C166 596 170 568 172 536 Z';
@@ -158,10 +174,12 @@
       fill('M118 548 L132 548 C128 570 128 594 132 620 L118 620 Z', C.wrapsShade, .6) +
       strokes(31, 18, [124, 552, 44, 64], 3, 0, C.wrapsDeep, .7, .5), 1.9);
     const loose = shape(rib([128, 598, 122, 604, 119, 610, 118, 618], 8, 6, true), C.wraps, line('M126 600 L120 616', C.wrapsShade, 1.2), 1.4);
-    const cuffD = 'M128 500 C122 514 118 528 120 542' + fray([[120, 542], [134, 552], [150, 549], [168, 554], [186, 551], [200, 545]], 3, 7, 35, 1) + ' C206 532 206 516 202 500';
-    const cuff = shape(cuffD + ' Z', C.trousers,
+    const cuffD = 'M126.5 508 C123 518 118.5 530 120 542' + fray([[120, 542], [134, 552], [150, 549], [168, 554], [186, 551], [200, 545]], 3, 7, 35, 1) + ' C206 532 205.5 518 201.5 508';
+    const dome = ' C200.5 496 194.5 486 184 480.5 C175 476 153 476 144 480.5 C133.5 486 127.5 496 126.5 508 Z';
+    const cuff = shape(cuffD + dome, C.trousers,
+      KNEE_FILL_R +
       fill('M112 530 C124 546 140 550 152 547 C168 551 188 550 204 540 L212 570 L106 570 Z', C.trousersDeep, .55) +
-      fill('M178 496 L210 496 L210 560 C198 560 190 556 186 548 C190 530 186 512 178 496 Z', C.trousersShade, .8) +
+      fill('M178 500 L210 500 L210 560 C198 560 190 556 186 548 C190 530 186 512 178 500 Z', C.trousersShade, .8) +
       fill(rib([136, 506, 130, 518, 128, 532, 132, 544], 9, 3), C.trousersLight, .5) +
       line('M124 522 C138 532 158 528 174 534 C184 537 196 534 204 527', C.trousersDeep, 1.4, .8) +
       line('M150 549 C152 542 156 536 162 532', C.trousersDeep, 1.2, .7), 0) + line(cuffD, OUT, 2.2);
@@ -181,7 +199,7 @@
       line('M106 640 C114 636 124 638 134 644', C.bootsDeep, 1.2, .7) +
       line('M112 652 C122 648 134 650 146 656', C.bootsDeep, 1.1, .5) +
       strokes(77, 10, [80, 610, 90, 60], 4, 30, C.bootsDeep, .8, .45) + laces) +
-      shape('M106 597 L174 595 L173 611 L109 613 Z', C.boots, fill('M106 605 L174 603 L174 613 L106 615 Z', C.bootsShade, .8) + line('M110 600 L170 598', C.bootsLight, 1, .6), 1.9) +
+      shape('M106 596 C127 600 153 600 174 594 L173 610 C153 615 128 616 109 612 Z', C.boots, fill('M104 604 C127 608 153 608 176 602 L176 618 L104 618 Z', C.bootsShade, .8) + line('M110 599 C130 602.5 150 602.5 170 597.5', C.bootsLight, 1, .6), 1.9) +
       shape('M68 671 L178 671 L178 684 L80 684 C72 684 67 679 68 671 Z', C.sole, line('M74 676 L176 676', C.bootsShade, .9, .8, '3 2.5'), 1.9);
   };
 
@@ -459,7 +477,30 @@
       finger([82, 410, 82, 425, 83, 439, 84, 452], 12.5) + finger([95, 408, 97, 421, 99, 433, 101, 445], 12) +
       shape(rib([104, 382, 112, 390, 118, 398, 122, 408], 13, 10, true), C.skin, '', 1.7) +
       nail(51, 437) + nail(67, 447) + nail(84, 450) + nail(101, 443) + nail(121, 406, 60);
-    return { relax, fist, grip };
+    // Mano abierta (saludo). Misma silueta por las dos caras: de frente se ve la palma (pliegues y yemas) y de espaldas el
+    // dorso (nudillos, tendones y uñas); como la vista de espalda refleja el rig, sale especular. El pulgar va por fuera en
+    // reposo, de modo que con el antebrazo hacia arriba apunta a la cabeza, como al saludar con la palma por delante.
+    const open = (() => {
+      const back = view === 'back';
+      const at = (p, t) => { const m = 1 - t; return [m * m * m * p[0] + 3 * m * m * t * p[2] + 3 * m * t * t * p[4] + t * t * t * p[6], m * m * m * p[1] + 3 * m * m * t * p[3] + 3 * m * t * t * p[5] + t * t * t * p[7]]; };
+      const dir = (p, t) => { const m = 1 - t; return [3 * m * m * (p[2] - p[0]) + 6 * m * t * (p[4] - p[2]) + 3 * t * t * (p[6] - p[4]), 3 * m * m * (p[3] - p[1]) + 6 * m * t * (p[5] - p[3]) + 3 * t * t * (p[7] - p[5])]; };
+      const across = (p, t, w) => { const [x, y] = at(p, t), [dx, dy] = dir(p, t), l = Math.hypot(dx, dy); return `M${n1(x + dy / l * w)} ${n1(y - dx / l * w)} L${n1(x - dy / l * w)} ${n1(y + dx / l * w)}`; };
+      const tipNail = (p, w) => { const [x, y] = at(p, .84), [dx, dy] = dir(p, .84); return ell(n1(x), n1(y), n1(w * .27), n1(w * .36), C.skinLight, .95, n1(Math.atan2(-dx, dy) * 180 / Math.PI)); };
+      const digit = (p, w0, w1) => shape(rib(p, w0, w1, true), C.skin,
+        fill(rib([p[0] - w0 * .3, p[1], p[2] - w0 * .3, p[3], p[4] - w0 * .3, p[5], p[6] - w0 * .3, p[7]], w0 * .4, w1 * .3), C.skinShade, .55) +
+        (back ? tipNail(p, w1) : line(across(p, .4, w0 * .3) + ' ' + across(p, .72, w1 * .3), C.skinShade, .9, .85)), 1.6);
+      let s = digit([58, 380, 50, 390, 42, 399, 35, 408], 14, 10.4);
+      [[[63, 405, 59, 421, 56, 436, 53, 450], 12, 10.2], [[75.5, 407, 74.5, 424, 73.5, 440, 73.5, 456], 12.6, 10.8],
+        [[88, 407, 90, 423, 92, 438, 95, 452], 12, 10.2], [[99, 403, 102, 416, 105, 428, 108, 439], 10.6, 9]].forEach(([p, w0, w1]) => { s += digit(p, w0, w1); });
+      return s + shape('M54 370 L104 370 C108 383 109 397 106 409 C96 414 66 415 56 409 C50 397 50 382 54 370 Z', C.skin,
+        fill('M44 368 L60 368 C57 386 57 398 60 412 L44 412 Z', C.skinShade) +
+        (back
+          ? ell(84, 390, 13, 8, C.skinLight, .4) + line('M68 377 L63 403 M76 377 L75 405 M84 377 L87 405 M91 377 L98 401', C.skinShade, .8, .5) +
+            ell(63, 405, 4, 2.2, C.skinLight, .6) + ell(75, 407, 4.2, 2.2, C.skinLight, .6) + ell(87, 407, 4, 2.2, C.skinLight, .6) + ell(98, 404, 3.4, 2, C.skinLight, .6)
+          : ell(84, 388, 12, 7, C.skinLight, .45) + line('M57 401 C66 399 72 389 72 375', C.skinShade, 1.1, .85) +
+            line('M106 397 C97 401 86 402 76 399', C.skinShade, 1, .8) + line('M60 396 C70 392 82 391 92 393', C.skinShade, .9, .6)), 2);
+    })();
+    return { relax, fist, grip, open };
   };
 
   // ── Props ──
@@ -518,15 +559,22 @@
   // Mira a la izquierda. Lado cercano = derecha de Goran (R); lado lejano (L) = mismo dibujo desplazado y oscurecido.
   const S = {};
 
-  S.pelvis = () => shape('M548 366 L654 366 C664 392 666 420 658 442 L560 442 C550 420 546 392 548 366 Z', C.trousers,
-    fill('M548 366 L664 366 L664 400 L548 400 Z', C.trousersDeep, .5));
+  // La pelvis sube hasta el cinturón: por la abertura lateral de la túnica se ve pantalón, no fondo.
+  S.pelvis = () => shape('M548 322 L654 322 L654 366 C664 392 666 420 658 442 L560 442 C550 420 546 392 548 366 Z', C.trousers,
+    fill('M540 318 L670 318 L670 400 L540 400 Z', C.trousersDeep, .5));
 
-  S.thighR = () => shape('M552 380 C546 420 544 460 546 500 L548 526 L648 526 C646 500 648 470 654 444 C660 424 662 402 658 380 Z', C.trousers,
-    fill('M630 380 L666 380 C664 420 656 450 652 480 C650 500 650 512 652 526 L636 526 C636 490 640 440 630 380 Z', C.trousersShade) +
-    fill('M540 380 L668 380 L668 418 C640 424 580 424 540 416 Z', C.trousersDeep, .5) +
+  // Rodilla (pivote 598,512) y cadera (600,404) redondeadas como en la vista frontal.
+  const THIGH_S = 'M548.9 404 C545.4 436 544.4 468 546 500 C546.4 505 546.5 508.5 546.5 512 C546.5 539.6 569.6 562 598 562' +
+    ' C625.1 562 647 539.6 647 512 C646.5 500 648 470 654 444 C657.8 431.3 660 417.8 660.1 404';
+  const thighDetailS = () =>
+    fill('M626 350 L668 350 C666 420 656 450 652 480 C650 500 650 520 652 570 L626 570 C632 548 636 536 636 526 C636 490 640 440 630 380 Z', C.trousersShade) +
+    fill('M540 340 L670 340 L670 418 C640 424 580 424 540 416 Z', C.trousersDeep, .5) +
     fill(rib([566, 430, 562, 456, 560, 482, 560, 508], 12, 4), C.trousersLight, .5) +
     line('M640 448 C620 460 600 470 578 476', C.trousersDeep, 1.5, .7) + line('M644 482 C626 490 606 496 586 498', C.trousersDeep, 1.4, .6) +
-    line('M552 452 C560 462 566 470 570 480', C.trousersDeep, 1.2, .5));
+    line('M552 452 C560 462 566 470 570 480', C.trousersDeep, 1.2, .5);
+  S.thighR = () => shape(THIGH_S + ' C660.1 372 632 352 600 352 C571.5 352 548.9 375 548.9 404 Z', C.trousers, thighDetailS(), 0) + line(THIGH_S, OUT, 2.2);
+  const KNEE_FILL_S = fill('M636.4 472 L670 472 L670 500 L636.2 500 Z', C.trousersShade) +
+    fill(rib([561, 476, 560.6, 484, 560.2, 492, 560, 500], 7.3, 4.8), C.trousersLight, .5) + line('M644 482 C626 490 606 496 586 498', C.trousersDeep, 1.4, .6);
 
   S.shinR = () => {
     const wraps = 'M562 536 C564 566 570 594 576 620 L628 622 C630 596 638 566 644 536 Z';
@@ -538,9 +586,11 @@
     }
     const wrapArt = shape(wraps, C.wraps, bands + fill('M618 530 L650 530 L650 626 L620 626 C626 596 626 566 618 530 Z', C.wrapsShade, .85) +
       strokes(36, 20, [564, 540, 76, 80], 3, 0, C.wrapsDeep, .7, .45), 1.9);
-    const cuffD = 'M552 500 C546 516 546 530 550 544' + fray([[550, 544], [572, 553], [598, 549], [622, 554], [646, 547]], 3, 8, 37, 1) + ' C652 530 652 514 648 500';
-    const cuff = shape(cuffD + ' Z', C.trousers,
-      fill('M540 530 C560 548 600 552 652 538 L656 570 L536 570 Z', C.trousersDeep, .55) + fill('M626 496 L656 496 L656 560 L630 560 C634 536 632 514 626 496 Z', C.trousersShade, .85) +
+    const cuffD = 'M548 512 C545 524 546 534 550 544' + fray([[550, 544], [572, 553], [598, 549], [622, 554], [646, 547]], 3, 8, 37, 1) + ' C652 534 651.5 522 648 512';
+    const dome = ' C646.5 496 638 484 624 478 C612 473 584 473 572 478 C558 484 549.5 496 548 512 Z';
+    const cuff = shape(cuffD + dome, C.trousers,
+      KNEE_FILL_S +
+      fill('M540 530 C560 548 600 552 652 538 L656 570 L536 570 Z', C.trousersDeep, .55) + fill('M626 500 L656 500 L656 560 L630 560 C634 536 632 514 626 500 Z', C.trousersShade, .85) +
       line('M552 520 C574 530 604 526 630 532 C640 534 646 532 650 526', C.trousersDeep, 1.4, .8) + line('M600 549 C602 540 606 534 612 530', C.trousersDeep, 1.2, .7), 0) + line(cuffD, OUT, 2.2);
     return wrapArt + cuff;
   };
@@ -552,22 +602,24 @@
       ell(552, 662, 15, 6, C.bootsLight, .6, -12) + fill('M534 664 C546 654 560 648 572 642 L576 650 C562 656 548 662 538 672 Z', C.bootsLight, .45) +
       line('M582 606 L572 614 M582 614 L572 606 M580 622 L568 630 M580 630 L568 622 M574 638 L560 646 M574 646 L562 638', C.cord, 1.5) +
       line('M576 650 C590 646 606 648 622 654', C.bootsDeep, 1.1, .6) + strokes(78, 10, [556, 610, 90, 60], 4, 30, C.bootsDeep, .8, .45)) +
-      shape('M571 596 L643 594 L642 610 L573 612 Z', C.boots, fill('M571 604 L643 602 L643 612 L571 614 Z', C.bootsShade, .8), 1.9) +
+      shape('M571 595 C592 599 622 599 643 593 L642 609 C622 614 592 615 573 611 Z', C.boots, fill('M569 603 C592 607 622 607 645 601 L645 617 L569 617 Z', C.bootsShade, .8), 1.9) +
       shape('M534 671 L654 671 L654 684 L546 684 C538 684 533 679 534 671 Z', C.sole, line('M540 676 L652 676', C.bootsShade, .9, .8, '3 2.5'), 1.9);
   };
 
   S.torso = () => {
     const skin = shape('M548 124 L594 124 L604 140 C590 146 572 150 556 160 C548 170 540 182 532 196 C534 170 540 146 548 124 Z', C.skin,
       fill('M540 124 L604 124 L604 140 L540 140 Z', C.skinShade, .6) + line('M548 150 C540 162 536 172 534 182', C.skinShade, 1.2), 2);
+    // La espalda llega hasta la línea del asiento y del faldón trasero (x ≈ 650 en la cintura, ≈ 657 en el omóplato)
     const d = 'M556 136' + fray([[556, 136], [538, 168], [524, 204]], 3, 6, 81, 1) +
-      ' C512 222 506 240 504 262 C503 276 503 290 504 304 L608 306 C612 276 618 240 624 206 C628 180 630 160 624 144 C610 136 590 132 572 132 Z';
+      ' C512 222 506 240 504 262 C503 276 503 290 504 304 L650 306 C653 282 656 252 657 226 C658 196 654 172 642 158 C630 145 610 137 590 134 C582 132.8 576 132 572 132 Z';
     let gathers = '';
-    [512, 528, 546, 564, 582, 598].forEach((x, i) => { gathers += line(`M${x} 304 L${x + (i % 2 ? 2 : -2)} ${288 - (i % 3) * 4}`, C.tunicShade, 1.4, .8); });
+    [512, 528, 546, 564, 582, 598, 616, 634].forEach((x, i) => { gathers += line(`M${x} 304 L${x + (i % 2 ? 2 : -2)} ${288 - (i % 3) * 4}`, C.tunicShade, 1.4, .8); });
     const tunic = shape(d, C.tunic,
-      fill('M596 132 L630 132 L630 310 L600 310 C608 260 606 190 596 132 Z', C.tunicShade, .9) +
-      ell(530, 236, 16, 34, C.tunicLight, .5, -8) + fill('M502 270 C520 276 560 278 610 272 L610 290 C560 296 520 292 502 286 Z', C.tunicShade, .45) +
-      line('M520 214 C536 232 548 254 556 290', C.tunicDeep, 1.3, .6) + line('M540 180 C556 200 568 224 576 252', C.tunicDeep, 1.2, .5) + gathers +
-      strokes(82, 22, [508, 150, 110, 150], 3, 80, C.tunicShade, .7, .35));
+      fill('M600 132 L664 132 L664 310 L624 310 C632 260 628 190 600 132 Z', C.tunicShade, .9) +
+      ell(530, 236, 16, 34, C.tunicLight, .5, -8) + fill('M502 270 C520 276 570 278 660 270 L660 290 C570 296 520 292 502 286 Z', C.tunicShade, .45) +
+      line('M520 214 C536 232 548 254 556 290', C.tunicDeep, 1.3, .6) + line('M540 180 C556 200 568 224 576 252', C.tunicDeep, 1.2, .5) +
+      line('M646 186 C640 214 638 246 640 290', C.tunicDeep, 1.2, .45) + gathers +
+      strokes(82, 26, [508, 150, 144, 150], 3, 80, C.tunicShade, .7, .35));
     return skin + tunic;
   };
 
@@ -575,14 +627,14 @@
     fill('M500 318 L570 318 L570 334 C546 330 524 330 500 336 Z', C.tunicShade, .85) + fill('M552 318 L572 318 L572 420 L556 420 C560 380 558 350 552 318 Z', C.tunicShade, .7) +
     line('M520 332 C516 356 512 378 508 398', C.tunicDeep, 1.3, .7) + line('M540 334 C540 360 538 384 536 402', C.tunicDeep, 1.3, .7));
 
-  S.hemBack = () => shape('M598 318 L640 318 C654 342 664 372 672 404' + fray([[672, 404], [636, 410], [598, 406]], 13, 10, 84, 1) + ' L598 318 Z', C.tunicShade,
-    line('M618 330 C626 356 634 380 640 404', C.tunicDeep, 1.3, .7) + line('M640 330 C648 352 656 374 662 398', C.tunicDeep, 1.2, .6) + fill('M598 318 L660 318 L660 334 L598 334 Z', C.tunicDeep, .4));
+  S.hemBack = () => shape('M598 318 L650 318 C660 342 668 372 675 404' + fray([[675, 404], [636, 410], [598, 406]], 13, 10, 84, 1) + ' L598 318 Z', C.tunicShade,
+    line('M618 330 C626 356 634 380 640 404', C.tunicDeep, 1.3, .7) + line('M642 330 C650 352 658 374 664 398', C.tunicDeep, 1.2, .6) + fill('M598 318 L672 318 L672 334 L598 334 Z', C.tunicDeep, .4));
 
-  S.belt = () => shape('M502 294 C540 300 580 302 610 300 L612 340 C580 344 540 342 500 336 Z', C.sash,
-      line('M504 299 C540 305 580 307 608 305', C.sashShade, 1.4, .8) + line('M502 331 C540 337 580 339 610 335', C.sashShade, 1.4, .8) + fill('M500 326 L612 326 L612 346 L500 346 Z', C.sashShade, .45)) +
-    shape('M501 305 C540 310 580 312 611 310 L611 330 C580 332 540 330 501 325 Z', C.leather,
-      fill('M500 318 L612 318 L612 334 L500 334 Z', C.leatherShade, .7) + line('M503 308.5 C540 313.5 580 315.5 609 313.5', C.leatherLight, 1, .8, '3 2.5') +
-      line('M503 321.5 C540 326.5 580 328.5 609 326.5', C.leatherShade, 1, .9, '3 2.5')) +
+  S.belt = () => shape('M502 294 C550 301 610 302 652 296 L655 338 C612 345 548 344 500 336 Z', C.sash,
+      line('M504 299 C550 305.5 610 307 650 301', C.sashShade, 1.4, .8) + line('M502 331 C550 338 612 340 653 333', C.sashShade, 1.4, .8) + fill('M500 326 L658 326 L658 348 L500 348 Z', C.sashShade, .45)) +
+    shape('M501 305 C550 311 610 313 653 307.5 L653.5 327.5 C610 333 550 331 501 325 Z', C.leather,
+      fill('M500 318 L656 318 L656 334 L500 334 Z', C.leatherShade, .7) + line('M503 308.5 C550 314.5 610 316.5 651 311', C.leatherLight, 1, .8, '3 2.5') +
+      line('M503 321.5 C550 327.5 610 329.5 651 324', C.leatherShade, 1, .9, '3 2.5')) +
     shape('M497 302 L506 303 L506 328 L497 327 Z', C.iron, line('M499 304 L499 326', C.ironLight, 1.2), 1.6);
 
   S.sashTailB = () => shape('M534 332 C536 362 538 400 542 440' + fray([[542, 440], [560, 436]], 10, 6, 85, 1) + ' C558 400 556 362 554 332 Z', C.sashShade,
@@ -748,7 +800,10 @@
     legR: { bones: ['thighR', 'shinR', 'footR'], bend: -1 },
     legL: { bones: ['thighL', 'shinL', 'footL'], bend: -1 }
   };
-  const FIRST_SIDE = { torso: ['upperArmL'], handR: ['hammer'], handL: ['flask'] };
+  // Capas de perfil, por profundidad: brazo lejano → pierna lejana → pelvis → pierna cercana → tronco y cabeza → brazo cercano.
+  const LAYERS_SIDE = ['root', 'upperArmL', 'forearmL', 'flask', 'handL', 'thighL', 'shinL', 'footL', 'pelvis', 'thighR', 'shinR', 'footR',
+    'torso', 'hemBack', 'hemFront', 'belt', 'sashTailB', 'sashTailA', 'neck', 'pendant', 'ponytail', 'hairBack', 'face', 'beard', 'mouth',
+    'mustache', 'eyeR', 'browR', 'hairFront', 'headband', 'upperArmR', 'forearmR', 'hammer', 'handR'];
   // ═══════════════════════════════ RIG ═══════════════════════════════
   // [id, padre, pivote, nombre, opciones]   opciones: m = arte reflejado de la pieza R, w = pieza en espacio de mundo, h = oculta en reposo
   const R_FRONT = [
@@ -800,12 +855,27 @@
     legR: { bones: ['thighR', 'shinR', 'footR'], bend: -1 },
     legL: { bones: ['thighL', 'shinL', 'footL'], bend: 1 }
   };
-  const FIRST_FRONT = { handR: ['hammer'], handL: ['flask'] };
+
+  // ── Capas (orden de dibujo, del fondo al frente) ──
+  // El orden es independiente de la jerarquía: cada pieza se dibuja con su matriz de mundo.
+  const HEAD_FRONT = ['ponytail', 'hairBack', 'face', 'beard', 'mouth', 'mustache', 'nose', 'eyeR', 'eyeL', 'browR', 'browL', 'hairFront', 'headband'];
+  const ARM_R = ['upperArmR', 'forearmR', 'hammer', 'handR'], ARM_L = ['upperArmL', 'forearmL', 'flask', 'handL'];
+  const LAYERS_FRONT = ['root', 'pelvis', 'thighR', 'shinR', 'footR', 'thighL', 'shinL', 'footL',
+    'torso', 'hemR', 'hemL', 'belt', 'sashTailB', 'sashTailA', 'sashKnot', 'neck', 'pendant', ...HEAD_FRONT, 'rock', ...ARM_R, ...ARM_L, 'dust'];
+  // De espaldas, lo que está delante del cuerpo (roca, polvo de la roca, fajín anudado delante) queda detrás.
+  const LAYERS_BACK = ['root', 'rock', 'dust', 'sashTailB', 'sashTailA', 'sashKnot', 'thighR', 'shinR', 'footR', 'thighL', 'shinL', 'footL',
+    'pelvis', 'torso', 'hemR', 'hemL', 'belt', 'neck', 'pendant', 'hairBack', 'face', 'ponytail', 'beard', 'mouth', 'mustache', 'nose',
+    'eyeR', 'eyeL', 'browR', 'browL', 'hairFront', 'headband', ...ARM_R, ...ARM_L];
+  // Estados de capa que activan las animaciones (pista "layers"). fore = el brazo trabaja delante del cuerpo:
+  // de frente no cambia nada; de espaldas el brazo (y lo que sujeta) pasa detrás del cuerpo y de la cabeza.
+  const RULES_BACK = {
+    armR: { fore: { move: ARM_R, after: 'dust' } },
+    armL: { fore: { move: ARM_L, after: 'dust' } }
+  };
 
   // ═══════════════════════════════ MOTOR ═══════════════════════════════
   const D2R = Math.PI / 180;
-  const KEYS = ['a', 'dx', 'dy', 'sx', 'sy', 'qx', 'qy', 'o'];
-  const DEF = { a: 0, dx: 0, dy: 0, sx: 1, sy: 1, qx: 1, qy: 1, o: 1 };
+  const DEF = { a: 0, dx: 0, dy: 0, sx: 1, sy: 1, qx: 1, qy: 1, k: 1, o: 1 };
   const EASE = {
     linear: t => t, in: t => t * t * t, out: t => 1 - Math.pow(1 - t, 3),
     inout: t => 0.5 - 0.5 * Math.cos(Math.PI * t), back: t => { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); }
@@ -818,6 +888,15 @@
     const a = s.a * D2R, c = Math.cos(a), n = Math.sin(a);
     const A = c * s.sx, B = n * s.sx, Cc = -n * s.sy, Dd = c * s.sy;
     return [A, B, Cc, Dd, ox + s.dx + p[0] - (A * p[0] + Cc * p[1]), oy + s.dy + p[1] - (B * p[0] + Dd * p[1])];
+  }
+  // Matriz solo del dibujo (sin arrastrar el marco de las hijas): escala qx/qy y escorzo k a lo largo del eje del hueso.
+  // k < 1 acorta la pieza en su eje sin adelgazarla, como un hueso que apunta hacia el espectador.
+  function artM(p, s) {
+    const b = p.axis, f = s.k - 1;
+    const K = [1 + f * b[0] * b[0], f * b[0] * b[1], f * b[0] * b[1], 1 + f * b[1] * b[1], 0, 0];
+    const A = mul(K, [s.qx, 0, 0, s.qy, 0, 0]);
+    A[4] = p.pivot[0] - (A[0] * p.pivot[0] + A[2] * p.pivot[1]); A[5] = p.pivot[1] - (A[1] * p.pivot[0] + A[3] * p.pivot[1]);
+    return A;
   }
   const normA = a => { a = (a + 180) % 360; if (a < 0) a += 360; return a - 180; };
   const lerpA = (a, b, w) => a + normA(b - a) * w;
@@ -847,8 +926,32 @@
     return out;
   }
   function sampleDiscrete(track, t) { let v = track[0][1]; for (const [tt, val] of track) if (tt <= t) v = val; return v; }
+
+  // Orden de dibujo de una vista para un estado de capas ({grupo: estado}).
+  function layerOrder(V, state) {
+    let order = V.layers.slice();
+    if (state && V.layerRules) Object.keys(state).forEach(grp => {
+      const r = V.layerRules[grp] && V.layerRules[grp][state[grp]];
+      if (!r) return;
+      order = order.filter(id => !r.move.includes(id));
+      const at = order.indexOf(r.before || r.after) + (r.after ? 1 : 0);
+      order.splice(at, 0, ...r.move);
+    });
+    return order;
+  }
   // ═══════════════════════════ VISTAS Y CONTROLADOR ═══════════════════════════
-  const normRig = def => def.map(([id, parent, pivot, name, o]) => ({ id, parent, pivot, name, m: o && o.m, src: o && o.src, tx: (o && o.tx) || 0, dim: !!(o && o.dim), w: !!(o && o.w), h: !!(o && o.h) }));
+  // axis = eje del hueso en reposo (hacia la articulación siguiente de su cadena); lo usa el escorzo k.
+  function normRig(def, chains) {
+    const rig = def.map(([id, parent, pivot, name, o]) => ({ id, parent, pivot, name, m: o && o.m, src: o && o.src, tx: (o && o.tx) || 0, dim: !!(o && o.dim), w: !!(o && o.w), h: !!(o && o.h), axis: [0, 1] }));
+    const by = {}; rig.forEach(p => { by[p.id] = p; });
+    Object.keys(chains).forEach(c => chains[c].bones.slice(0, 2).forEach((b, i) => {
+      const a = by[b].pivot, e = by[chains[c].bones[i + 1]].pivot, l = Math.hypot(e[0] - a[0], e[1] - a[1]);
+      by[b].axis = [(e[0] - a[0]) / l, (e[1] - a[1]) / l];
+    }));
+    return rig;
+  }
+  // Orden completo: el de la vista, más cualquier pieza del rig que falte (al frente, en orden de definición).
+  const fullLayers = (rig, order) => order.filter(id => rig.some(p => p.id === id)).concat(rig.map(p => p.id).filter(id => !order.includes(id)));
   const EXPLODE_SIDE = {
     thighL: [-26, 24], shinL: [-6, 26], footL: [-6, 22], thighR: [26, 24], shinR: [6, 26], footR: [6, 22], torso: [0, -26],
     hemFront: [-30, 40], hemBack: [34, 40], belt: [0, 22], sashTailA: [-26, 30], sashTailB: [-8, 34], neck: [0, -20], head: [0, -34],
@@ -869,13 +972,13 @@
     esfuerzo: { browR: 'effort', browL: 'effort', eyeR: 'squint', eyeL: 'squint', mouth: 'teeth' },
     resoplido: { browR: 'effort', browL: 'neutral', eyeR: 'down', eyeL: 'down', mouth: 'open' }
   };
+  const RIG_FRONT = normRig(R_FRONT, CHAINS_FRONT), RIG_SIDE = normRig(R_SIDE, CHAINS_SIDE);
   const VIEWS = {
-    front: { rig: normRig(R_FRONT), chains: CHAINS_FRONT, first: FIRST_FRONT, art: F, kind: 'front', wrap: ID, explode: EXPLODE_FRONT, expr: EXPR_FRONT,
+    front: { rig: RIG_FRONT, chains: CHAINS_FRONT, layers: fullLayers(RIG_FRONT, LAYERS_FRONT), art: F, kind: 'front', wrap: ID, explode: EXPLODE_FRONT, expr: EXPR_FRONT,
       viewBox: { rest: '22 22 406 668', action: '-40 -170 530 866', head: '170 24 110 116' } },
-    back: { rig: normRig(R_FRONT), chains: CHAINS_FRONT, first: FIRST_FRONT, art: F, kind: 'back', wrap: [-1, 0, 0, 1, 450, 0],
-      order: { head: ['hairBack', 'face', 'ponytail', 'beard', 'mouth', 'mustache', 'nose', 'eyeR', 'eyeL', 'browR', 'browL', 'hairFront', 'headband'] }, explode: EXPLODE_FRONT, expr: EXPR_FRONT,
-      viewBox: { rest: '22 22 406 668', action: '-40 -170 530 866', head: '170 24 110 116' } },
-    side: { rig: normRig(R_SIDE), chains: CHAINS_SIDE, first: FIRST_SIDE, art: S, kind: 'side', wrap: [1, 0, 0, 1, -355, 0], explode: EXPLODE_SIDE,
+    back: { rig: RIG_FRONT, chains: CHAINS_FRONT, layers: fullLayers(RIG_FRONT, LAYERS_BACK), layerRules: RULES_BACK, art: F, kind: 'back', wrap: [-1, 0, 0, 1, 450, 0],
+      explode: EXPLODE_FRONT, expr: EXPR_FRONT, viewBox: { rest: '22 22 406 668', action: '-40 -170 530 866', head: '170 24 110 116' } },
+    side: { rig: RIG_SIDE, chains: CHAINS_SIDE, layers: fullLayers(RIG_SIDE, LAYERS_SIDE), art: S, kind: 'side', wrap: [1, 0, 0, 1, -355, 0], explode: EXPLODE_SIDE,
       expr: { neutral: { browR: 'neutral', eyeR: 'open', mouth: 'neutral' }, contento: { browR: 'happy', eyeR: 'happy', mouth: 'smile' },
         confundido: { browR: 'raised', eyeR: 'up', mouth: 'askew' }, esfuerzo: { browR: 'effort', eyeR: 'squint', mouth: 'teeth' }, resoplido: { browR: 'effort', eyeR: 'down', mouth: 'open' } },
       viewBox: { rest: '22 22 406 668', action: '-40 -170 530 866', head: '140 24 130 116' } }
@@ -894,19 +997,14 @@
     if (p.tx) art = `<g transform="translate(${p.tx} 0)">${art}</g>`;
     return `<g transform="matrix(${V.wrap.join(' ')})">${art}</g>`;
   }
+  // Cada pieza es un <g data-part> hermano de las demás, en el orden de capas de la vista; el motor le pone su matriz de mundo.
   function buildMarkup(viewName, opts) {
     opts = opts || {};
     const V = VIEWS[viewName];
     _uid = 0; _pre = opts.idPrefix || ('gr' + (++instances) + '_');
-    const byParent = {};
-    V.rig.forEach(p => { (byParent[p.parent] = byParent[p.parent] || []).push(p); });
-    const g = p => {
-      let kids = byParent[p.id] || [];
-      const first = V.first[p.id] || [];
-      if (V.order && V.order[p.id]) { const ord = V.order[p.id]; kids = kids.slice().sort((a, b) => ord.indexOf(a.id) - ord.indexOf(b.id)); }
-      const before = kids.filter(k => first.includes(k.id)).map(g).join('');
-      const after = kids.filter(k => !first.includes(k.id)).map(g).join('');
-      const fn = V.art[p.src || p.m || p.id];
+    const by = {}; V.rig.forEach(p => { by[p.id] = p; });
+    const parts = V.layers.map(id => {
+      const p = by[id], fn = V.art[p.src || p.m || p.id];
       const art = fn ? fn(V.kind, !!p.m) : '';
       let inner = (art && typeof art === 'object')
         ? Object.keys(art).map((k, i) => `<g data-v="${k}"${i ? ' display="none"' : ''}>${art[k]}</g>`).join('')
@@ -914,24 +1012,24 @@
       if (p.m) inner = `<g transform="matrix(-1 0 0 1 450 0)">${inner}</g>`;
       if (p.tx) inner = `<g transform="translate(${p.tx} 0)">${inner}</g>`;
       if (p.dim) inner = `<g style="filter:brightness(.74) saturate(.92)">${inner}</g>`;
-      return `<g data-part="${p.id}"${p.h ? ' opacity="0"' : ''}>${before}<g data-art="1">${inner}</g>${after}</g>`;
-    };
+      return `<g data-part="${p.id}"${p.h ? ' opacity="0"' : ''}><g data-art="1">${inner}</g></g>`;
+    }).join('');
     const vb = V.viewBox[opts.viewBox || 'rest'] || opts.viewBox || V.viewBox.rest;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" role="img" aria-label="Goran"${opts.className ? ` class="${opts.className}"` : ''}>` +
-      `<g data-wrap="1" transform="matrix(${V.wrap.join(' ')})">${g(V.rig[0])}</g></svg>`;
+      `<g data-wrap="1" transform="matrix(${V.wrap.join(' ')})">${parts}</g></svg>`;
   }
 
   /**
    * Crea a Goran en `container`.
    * opts: { view: 'front'|'back'|'side', viewBox: 'rest'|'action'|'head'|string, expression, equip: {hammer, flask} }
-   * Devuelve: { svg, view, nodes, rig, pose(states, {ik, flat}), play(name, {speed, onEnd, onFrame, chain}), seek(name, t), stop(),
+   * Devuelve: { svg, view, nodes, rig, pose(states, {ik, flat, layers}), play(name, {speed, onEnd, onFrame, chain}), seek(name, t), stop(),
    *             setExpression(name), equip(prop, on), setExplode(k), pivots(), world(id) }
    */
   function create(container, opts) {
     opts = opts || {};
     const view = opts.view || 'front', V = VIEWS[view];
     container.insertAdjacentHTML('beforeend', buildMarkup(view, opts));
-    const svg = container.lastElementChild;
+    const svg = container.lastElementChild, wrapEl = svg.querySelector('[data-wrap]');
     const rig = {}, nodes = {}, arts = {}, vars = {};
     V.rig.forEach(p => { rig[p.id] = p; });
     svg.querySelectorAll('[data-part]').forEach(n => {
@@ -942,6 +1040,7 @@
     });
     const cache = {};
     let base = {}, expression = opts.expression || 'neutral', explode = 0, raf = 0, playing = null, last = { st: {}, ik: {}, flat: {} };
+    let zState = null, zKey = '';
     const equipped = {};
 
     function compose(anim) {
@@ -957,44 +1056,83 @@
       return st;
     }
 
+    // L = matriz local, W = de mundo, A = solo del dibujo (q/k), O = opacidad acumulada (la de los padres se hereda)
     function world(st) {
-      const L = {}, W = {};
+      const L = {}, W = {}, A = {}, O = {};
       V.rig.forEach(p => {
+        const s = st[p.id];
+        A[p.id] = artM(p, s);
         let ox = 0, oy = 0;
-        if (p.parent) {
-          const ps = st[p.parent], pp = rig[p.parent].pivot;
-          ox = (p.pivot[0] - pp[0]) * (ps.qx - 1); oy = (p.pivot[1] - pp[1]) * (ps.qy - 1);
-        }
-        let lm = localM(p.pivot, st[p.id], ox, oy);
-        if (p.w && p.parent) lm = mul(inv(W[p.parent]), localM(p.pivot, st[p.id], 0, 0));
+        if (p.parent) { const q = ap(A[p.parent], p.pivot[0], p.pivot[1]); ox = q[0] - p.pivot[0]; oy = q[1] - p.pivot[1]; }
+        let lm = localM(p.pivot, s, ox, oy);
+        if (p.w && p.parent) lm = mul(inv(W[p.parent]), localM(p.pivot, s, 0, 0));
         L[p.id] = lm; W[p.id] = p.parent ? mul(W[p.parent], lm) : lm;
+        O[p.id] = Math.max(0, Math.min(1, s.o)) * (p.parent ? O[p.parent] : 1);
       });
-      return { L, W };
+      return { L, W, A, O };
     }
 
-    function solve(chainName, tx, ty, w, st, M) {
-      const ch = V.chains[chainName]; if (!ch || !w) return;
+    // IK de dos huesos. Sin z ni polo: plano, el codo/rodilla se dobla hacia el lado `bend` de la cadena.
+    // Con z (profundidad del objetivo, + hacia el espectador) o polo (px, py, pz: hacia dónde apunta el codo),
+    // se resuelve en 3D y se proyecta: el codo nunca da la vuelta y el hueso que sale del plano se acorta (canal k).
+    function solve(chainName, t, st, M) {
+      const ch = V.chains[chainName], w = t.w == null ? 1 : t.w;
+      if (!ch || !w) return;
       const [u, f, h] = ch.bones, par = rig[u].parent;
-      const Pw = M.W[par], T = ap(inv(Pw), tx, ty);
+      const Pw = M.W[par], Pi = inv(Pw), T = ap(Pi, t.x, t.y);
       const pu = rig[u].pivot, pf = rig[f].pivot, ph = rig[h].pivot;
       const S = ap(M.L[u], pu[0], pu[1]);
       const u0 = [pf[0] - pu[0], pf[1] - pu[1]], f0 = [ph[0] - pf[0], ph[1] - pf[1]];
       const L1 = Math.hypot(u0[0], u0[1]), L2 = Math.hypot(f0[0], f0[1]);
-      const dx = T[0] - S[0], dy = T[1] - S[1];
-      const D = Math.min(L1 + L2 - 0.01, Math.max(Math.abs(L1 - L2) + 0.01, Math.hypot(dx, dy)));
-      const baseA = Math.atan2(dy, dx), A = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + D * D - L2 * L2) / (2 * L1 * D))));
-      const cands = [baseA + A, baseA - A].map(t1 => {
-        const E = [S[0] + Math.cos(t1) * L1, S[1] + Math.sin(t1) * L1];
-        return { t1, E, xw: ap(Pw, E[0], E[1])[0] };
-      });
-      const c = cands[0].xw * ch.bend >= cands[1].xw * ch.bend ? cands[0] : cands[1];
-      const t2 = Math.atan2(T[1] - c.E[1], T[0] - c.E[0]);
-      const aU = (c.t1 - Math.atan2(u0[1], u0[0])) / D2R;
-      const aF = (t2 - Math.atan2(f0[1], f0[0])) / D2R - aU;
+      let E, H, k1 = 1, k2 = 1;
+      if (t.z == null && t.px == null && t.py == null && t.pz == null) {
+        const dx = T[0] - S[0], dy = T[1] - S[1];
+        const D = Math.min(L1 + L2 - 0.01, Math.max(Math.abs(L1 - L2) + 0.01, Math.hypot(dx, dy)));
+        const baseA = Math.atan2(dy, dx), A = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + D * D - L2 * L2) / (2 * L1 * D))));
+        const cands = [baseA + A, baseA - A].map(t1 => {
+          const e = [S[0] + Math.cos(t1) * L1, S[1] + Math.sin(t1) * L1];
+          return { e, xw: ap(Pw, e[0], e[1])[0] };
+        });
+        E = (cands[0].xw * ch.bend >= cands[1].xw * ch.bend ? cands[0] : cands[1]).e;
+        const t2 = Math.atan2(T[1] - E[1], T[0] - E[0]);
+        H = [E[0] + Math.cos(t2) * L2, E[1] + Math.sin(t2) * L2];
+      } else {
+        const z = t.z || 0, D = [T[0] - S[0], T[1] - S[1], z], d0 = Math.hypot(D[0], D[1], D[2]) || 1e-6;
+        const d = Math.min(L1 + L2 - 0.01, Math.max(Math.abs(L1 - L2) + 0.01, d0));
+        const n = [D[0] / d0, D[1] / d0, D[2] / d0];
+        const a = (L1 * L1 - L2 * L2 + d * d) / (2 * d), r = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+        let px = t.px || 0, py = t.py || 0;
+        const pz = t.pz || 0;
+        if (!px && !py && !pz) px = ch.bend;
+        let P = [Pi[0] * px + Pi[2] * py, Pi[1] * px + Pi[3] * py, pz];
+        const pn = P[0] * n[0] + P[1] * n[1] + P[2] * n[2];
+        P = [P[0] - pn * n[0], P[1] - pn * n[1], P[2] - pn * n[2]];
+        let pl = Math.hypot(P[0], P[1], P[2]);
+        if (pl < 1e-6) { P = [-n[1], n[0], 0]; pl = Math.hypot(P[0], P[1]) || 1; }
+        const E3 = [S[0] + n[0] * a + P[0] / pl * r, S[1] + n[1] * a + P[1] / pl * r, n[2] * a + P[2] / pl * r];
+        const Fv = [T[0] - E3[0], T[1] - E3[1], z - E3[2]], fl = Math.hypot(Fv[0], Fv[1], Fv[2]) || 1e-6;
+        E = [E3[0], E3[1]]; H = [E3[0] + Fv[0] / fl * L2, E3[1] + Fv[1] / fl * L2];
+        k1 = Math.max(0.05, Math.hypot(E[0] - S[0], E[1] - S[1]) / L1);
+        k2 = Math.max(0.05, Math.hypot(H[0] - E[0], H[1] - E[1]) / L2);
+      }
+      const aU = (Math.atan2(E[1] - S[1], E[0] - S[0]) - Math.atan2(u0[1], u0[0])) / D2R;
+      const aF = (Math.atan2(H[1] - E[1], H[0] - E[0]) - Math.atan2(f0[1], f0[0])) / D2R - aU;
       st[u].a = lerpA(st[u].a, normA(aU), w);
       st[f].a = lerpA(st[f].a, normA(aF), w);
+      st[u].k += (k1 - st[u].k) * w; st[f].k += (k2 - st[f].k) * w;
     }
 
+    // Reordena las capas solo cuando cambia el estado ({grupo: estado}, p. ej. { armR: 'fore' })
+    function setLayers(state) {
+      if (state === zState) return;
+      zState = state;
+      const key = state && Object.keys(state).length ? JSON.stringify(state) : '';
+      if (key === zKey) return;
+      zKey = key;
+      layerOrder(V, state).forEach(id => wrapEl.appendChild(nodes[id]));
+    }
+
+    const r4 = v => Math.round(v * 1e4) / 1e4;
     function render(anim) {
       last = anim;
       const st = compose(anim);
@@ -1003,9 +1141,9 @@
       const keys = Object.keys(ik);
       if (keys.length) {
         keys.forEach(k => {
-          const t = ik[k]; let x = t.x, y = t.y;
-          if (t.rel) { const rp = ap(M.W[t.rel], rig[t.rel].pivot[0], rig[t.rel].pivot[1]); x += rp[0]; y += rp[1]; }
-          solve(k, x, y, t.w == null ? 1 : t.w, st, M);
+          const t = Object.assign({}, ik[k]);
+          if (t.rel) { const rp = ap(M.W[t.rel], rig[t.rel].pivot[0], rig[t.rel].pivot[1]); t.x += rp[0]; t.y += rp[1]; }
+          solve(k, t, st, M);
         });
         M = world(st);
       }
@@ -1017,14 +1155,15 @@
         });
         M = world(st);
       }
+      setLayers(anim.layers);
       V.rig.forEach(p => {
-        const s = st[p.id], L = M.L[p.id];
-        const tr = `matrix(${L.map(v => Math.round(v * 1e4) / 1e4).join(' ')})`;
+        const s = st[p.id], W = M.W[p.id], A = M.A[p.id];
+        const tr = `matrix(${W.map(r4).join(' ')})`;
         const c = cache[p.id] || (cache[p.id] = {});
         if (c.tr !== tr) { nodes[p.id].setAttribute('transform', tr); c.tr = tr; }
-        const q = (s.qx !== 1 || s.qy !== 1) ? `matrix(${s.qx} 0 0 ${s.qy} ${p.pivot[0] * (1 - s.qx)} ${p.pivot[1] * (1 - s.qy)})` : '';
+        const q = (A[0] !== 1 || A[1] !== 0 || A[2] !== 0 || A[3] !== 1) ? `matrix(${A.map(r4).join(' ')})` : '';
         if (c.q !== q) { if (q) arts[p.id].setAttribute('transform', q); else arts[p.id].removeAttribute('transform'); c.q = q; }
-        const o = Math.max(0, Math.min(1, s.o)).toFixed(3);
+        const o = M.O[p.id].toFixed(3);
         if (c.o !== o) { nodes[p.id].setAttribute('opacity', o); c.o = o; }
         if (vars[p.id]) {
           const want = (s.v && vars[p.id][s.v]) ? s.v : Object.keys(vars[p.id])[0];
@@ -1039,9 +1178,9 @@
       if (!A) throw new Error('Animación desconocida en vista ' + view + ': ' + name);
       const st = {}, ik = {}, flat = {};
       Object.keys(A.tracks || {}).forEach(id => { st[id] = sampleTrack(A.tracks[id], t); });
-      Object.keys(A.ik || {}).forEach(k => { const s = sampleTrack(A.ik[k], t); ik[k] = { x: s.x, y: s.y, w: s.w, rel: A.ikRel && A.ikRel[k] }; });
+      Object.keys(A.ik || {}).forEach(k => { ik[k] = Object.assign(sampleTrack(A.ik[k], t), { rel: A.ikRel && A.ikRel[k] }); });
       Object.keys(A.flat || {}).forEach(id => { flat[id] = typeof A.flat[id] === 'number' ? A.flat[id] : sampleTrack(A.flat[id], t).w; });
-      return { st, ik, flat, ex: A.expr ? sampleDiscrete(A.expr, t) : null };
+      return { st, ik, flat, ex: A.expr ? sampleDiscrete(A.expr, t) : null, layers: A.layers ? sampleDiscrete(A.layers, t) : null };
     }
 
     function stop() { cancelAnimationFrame(raf); playing = null; }
@@ -1067,7 +1206,7 @@
     render({ st: {}, ik: {}, flat: {} });
     return {
       svg, view, nodes, rig, chains: V.chains,
-      pose(states, extra) { stop(); extra = extra || {}; render({ st: states || {}, ik: extra.ik || {}, flat: extra.flat || {}, ex: extra.expression }); },
+      pose(states, extra) { stop(); extra = extra || {}; render({ st: states || {}, ik: extra.ik || {}, flat: extra.flat || {}, ex: extra.expression, layers: extra.layers }); },
       play, stop, seek(name, t) { stop(); render(stateAt(name, t)); },
       get playing() { return playing; },
       setExpression(name) { expression = name; if (!playing) render(last); },
@@ -1105,35 +1244,65 @@
     }
   };
 
-  // Levantamiento de roca: 6 poses clave (preparación → bloqueo), sostener, soltar.
+  // Levantamiento de roca (piedra al pecho y press por encima de la cabeza): 6 poses clave, sostener, bajar al pecho y soltar.
   const KEYPOSES = [
     { id: 'prep', name: 'Preparación', t: 0.14 }, { id: 'lift', name: 'Despegue', t: 0.28 }, { id: 'lap', name: 'Al regazo', t: 0.38 },
-    { id: 'chest', name: 'Al pecho', t: 0.50 }, { id: 'drive', name: 'Impulso', t: 0.58 }, { id: 'lock', name: 'Bloqueo', t: 0.66 }
+    { id: 'chest', name: 'Al pecho', t: 0.50 }, { id: 'drive', name: 'Impulso', t: 0.56 }, { id: 'lock', name: 'Bloqueo', t: 0.66 }
   ];
-  // Agarre de cada mano relativo al centro de la roca (s = -1 mano der., +1 mano izq.)
-  const ikArm = s => [[0, { x: 96 * s, y: -30, w: 0 }],
-    [0.1, { x: 96 * s, y: -30, w: 0 }], [0.14, { x: 96 * s, y: -30, w: 1 }], [0.28, { x: 94 * s, y: -34, w: 1 }], [0.38, { x: 80 * s, y: 0, w: 1 }],
-    [0.5, { x: 64 * s, y: 40, w: 1 }], [0.58, { x: s < 0 ? -56 : 58, y: s < 0 ? 64 : 58, w: 1 }], [0.66, { x: 72 * s, y: 44, w: 1 }], [0.84, { x: 64 * s, y: 40, w: 1 }],
-    [0.875, { x: 64 * s, y: 40, w: 1 }], [0.9, { x: 64 * s, y: 40, w: 0 }], [1, { x: 64 * s, y: 40, w: 0 }]];
+  // Brazos con IK 3D: mano respecto al centro de la roca (x, y), su profundidad z (+ hacia el espectador) y el polo del codo
+  // (px, py, pz). El codo sale siempre por fuera y el húmero se escorza cuando apunta al frente, en vez de dar la vuelta.
+  // Secuencia de cada brazo, del regazo al bloqueo:
+  //  1. el húmero se abre (codos fuera y atrás) mientras las manos se meten bajo la roca;
+  //  2. sube el antebrazo: la roca rueda por el tronco hasta el pecho;
+  //  3. el húmero se cierra: codos abajo y antebrazos bajo la roca (rack);
+  //  4. flexión y empuje de piernas: el húmero se vuelve a abrir (codos fuera y arriba) a la vez que sube el antebrazo;
+  //  5. extensión hasta el bloqueo. Al bajar se recorre el mismo camino al revés, más despacio.
+  //          t       x    y    z    px    py    pz    w
+  const ARM_KEYS = [
+    [0,      92, -26,  20,  1,  0.2, -0.6, 0],
+    [0.1,    92, -26,  20,  1,  0.2, -0.6, 0],
+    [0.14,   92, -26,  20,  1,  0.2, -0.6, 1],   // agarre a los lados de la roca, brazos casi rectos
+    [0.2,    90, -24,  20,  1,  0.2, -0.6, 1],
+    [0.28,   88, -28,  26,  1,  0.3, -0.6, 1],   // despegue
+    [0.38,   80,   0,  44,  1,  0.3, -0.7, 1],   // al regazo
+    [0.42,   62,  36,  40,  1,  0.1, -0.3, 1],   // 1. húmero fuera, manos bajo la roca
+    [0.46,   60,  46,  48,  1,  0.4, -0.2, 1],   // 2. sube el antebrazo
+    [0.5,    58,  50,  45,  0.45, 1, -0.1,  1],  // 3. rack: húmero cerrado, codos abajo
+    [0.53,   58,  50,  45,  0.45, 1, -0.1,  1],  //    flexión
+    [0.555,  82,  40, 120,  1,  0.2,  0.25, 1],  // 4. empuje: húmero abierto a la altura del hombro, antebrazo hacia dentro y arriba
+    [0.6,    74,  44,  60,  1,  0,    0.1,  1],
+    [0.66,   72,  44,  16,  1, -0.1,  0,    1],  // 5. bloqueo
+    [0.76,   72,  44,  16,  1, -0.1,  0,    1],
+    [0.8,    82,  40, 120,  1,  0.2,  0.25, 1],  // bajada: el mismo camino al revés
+    [0.84,   58,  50,  45,  0.45, 1, -0.1,  1],  // de vuelta al rack
+    [0.875,  58,  50,  45,  0.45, 1, -0.1,  1],
+    [0.9,    58,  50,  45,  0.45, 1, -0.1,  0],  // suelta
+    [1,      58,  50,  45,  0.45, 1, -0.1,  0]
+  ];
+  const ikArm = s => ARM_KEYS.map(([t, x, y, z, px, py, pz, w]) => [t, { x: x * s, y, z, px: px * s, py, pz, w }]);
   const gripTrack = [[0, { v: 'relax' }], [0.12, { v: 'grip' }], [0.885, { v: 'relax' }]];
   ANIMS.front.liftRock = {
     duration: 11000, then: 'idle',
     tracks: {
-      rock: [[0, { o: 1 }], [0.2, { o: 1 }], [0.28, { o: 1, dy: -20, a: 4 }], [0.38, { o: 1, dy: -126, a: 12 }], [0.5, { o: 1, dy: -346, a: 20 }],
-        [0.58, { o: 1, dx: -40, dy: -606, a: 26 }], [0.66, { o: 1, dy: -656, a: 30 }], [0.71, { o: 1, dx: 4, dy: -660, a: 32 }], [0.76, { o: 1, dx: -2, dy: -656, a: 30 }],
+      rock: [[0, { o: 1 }], [0.2, { o: 1 }], [0.28, { o: 1, dy: -20, a: 4 }], [0.38, { o: 1, dy: -126, a: 12 }], [0.42, { o: 1, dy: -170, a: 13 }],
+        [0.5, { o: 1, dy: -346, a: 20 }], [0.53, { o: 1, dy: -322, a: 20 }], [0.555, { o: 1, dx: -6, dy: -490, a: 24 }], [0.6, { o: 1, dx: 4, dy: -630, a: 28 }],
+        [0.66, { o: 1, dy: -656, a: 30 }], [0.71, { o: 1, dx: 4, dy: -660, a: 32 }], [0.76, { o: 1, dx: -2, dy: -656, a: 30 }], [0.8, { o: 1, dy: -490, a: 26 }],
         [0.84, { o: 1, dy: -346, a: 22 }], [0.88, { o: 1, dy: -348, a: 22 }], [0.91, { o: 1, dy: 0, a: 40 }, 'in'], [0.93, { o: 1, dy: -12, a: 42 }, 'out'], [0.95, { o: 1, dy: 0, a: 44 }, 'in'],
         [0.965, { o: 1, a: 44 }], [1, { o: 1, dx: 340, a: 300 }, 'in']],
-      pelvis: [[0, {}], [0.06, {}], [0.14, { dy: 125 }], [0.2, { dy: 125 }], [0.28, { dy: 110 }], [0.38, { dy: 96 }], [0.5, {}], [0.58, { dy: 26 }], [0.66, { dy: -2 }],
-        [0.76, {}], [0.84, { dy: 6 }], [0.88, { dy: 8 }], [0.91, { dy: 22 }, 'out'], [0.96, {}], [1, {}]],
-      torso: [[0, {}], [0.06, {}], [0.14, { qy: 0.55, dy: 12 }], [0.2, { qy: 0.55, dy: 12 }], [0.28, { qy: 0.62, dy: 10 }], [0.38, { qy: 0.86, dy: 4 }], [0.5, {}],
-        [0.58, { a: 5, qy: 0.98 }], [0.66, {}], [0.71, { a: -1.5 }], [0.76, { a: 1 }], [0.84, {}], [0.91, { qy: 0.94, dy: 4 }], [0.96, {}], [1, {}]],
+      pelvis: [[0, {}], [0.06, {}], [0.14, { dy: 125 }], [0.2, { dy: 125 }], [0.28, { dy: 110 }], [0.38, { dy: 96 }], [0.42, { dy: 92 }], [0.5, {}],
+        [0.53, { dy: 24 }], [0.565, { dy: -4 }], [0.6, { dy: 12 }], [0.66, { dy: -2 }], [0.76, {}], [0.8, { dy: 8 }], [0.84, { dy: 12 }], [0.88, { dy: 8 }],
+        [0.91, { dy: 22 }, 'out'], [0.96, {}], [1, {}]],
+      torso: [[0, {}], [0.06, {}], [0.14, { qy: 0.55, dy: 12 }], [0.2, { qy: 0.55, dy: 12 }], [0.28, { qy: 0.62, dy: 10 }], [0.38, { qy: 0.86, dy: 4 }],
+        [0.42, { qy: 0.84, dy: 4 }], [0.5, {}], [0.53, { qy: 0.98 }], [0.565, { a: 3, qy: 1.01 }], [0.6, { a: -1 }], [0.66, {}], [0.71, { a: -1.5 }], [0.76, { a: 1 }],
+        [0.8, { a: 1 }], [0.84, {}], [0.91, { qy: 0.94, dy: 4 }], [0.96, {}], [1, {}]],
       neck: [[0, {}], [0.14, { dy: 4 }], [0.28, {}], [1, {}]],
-      head: [[0, {}], [0.14, { dy: 4 }], [0.28, { dy: -2 }], [0.38, { a: 6 }], [0.5, {}], [0.58, { a: 10, dy: 4 }], [0.66, { dy: 6 }], [0.76, { dy: 6 }], [0.84, {}], [0.94, { a: -3 }], [1, {}]],
+      head: [[0, {}], [0.14, { dy: 4 }], [0.28, { dy: -2 }], [0.38, { a: 6 }], [0.5, {}], [0.53, { dy: 2 }], [0.565, { a: -4, dy: 6 }], [0.6, { a: 4, dy: 6 }],
+        [0.66, { dy: 6 }], [0.76, { dy: 6 }], [0.8, { a: -3, dy: 4 }], [0.84, {}], [0.94, { a: -3 }], [1, {}]],
       upperArmR: [[0, {}], [0.62, {}], [0.66, { dy: -10 }], [0.78, { dy: -10 }], [0.84, {}], [1, {}]],
       upperArmL: [[0, {}], [0.62, {}], [0.66, { dy: -10 }], [0.78, { dy: -10 }], [0.84, {}], [1, {}]],
       handR: gripTrack, handL: gripTrack,
-      hemR: [[0, {}], [0.14, { a: 22 }], [0.28, { a: 18 }], [0.38, { a: 12 }], [0.5, { a: -2 }], [0.58, { a: 4 }], [0.66, {}], [0.91, { a: 6 }], [0.96, { a: -2 }], [1, {}]],
-      hemL: [[0, {}], [0.14, { a: -22 }], [0.28, { a: -18 }], [0.38, { a: -12 }], [0.5, { a: 2 }], [0.58, { a: -4 }], [0.66, {}], [0.91, { a: -6 }], [0.96, { a: 2 }], [1, {}]],
+      hemR: [[0, {}], [0.14, { a: 22 }], [0.28, { a: 18 }], [0.38, { a: 12 }], [0.5, { a: -2 }], [0.53, { a: 3 }], [0.565, { a: 5 }], [0.66, {}], [0.91, { a: 6 }], [0.96, { a: -2 }], [1, {}]],
+      hemL: [[0, {}], [0.14, { a: -22 }], [0.28, { a: -18 }], [0.38, { a: -12 }], [0.5, { a: 2 }], [0.53, { a: -3 }], [0.565, { a: -5 }], [0.66, {}], [0.91, { a: -6 }], [0.96, { a: 2 }], [1, {}]],
       sashTailA: [[0, {}], [0.14, { a: -10 }], [0.38, { a: -6 }], [0.5, { a: 4 }], [0.6, { a: -5 }], [0.7, { a: 3 }], [0.92, { a: -6 }], [0.97, { a: 3 }], [1, {}]],
       sashTailB: [[0, {}], [0.16, { a: -8 }], [0.4, { a: -4 }], [0.52, { a: 5 }], [0.62, { a: -4 }], [0.72, { a: 3 }], [0.93, { a: -5 }], [0.98, { a: 2 }], [1, {}]],
       pendant: [[0, {}], [0.14, { a: -6 }], [0.5, { a: 4 }], [0.6, { a: -3 }], [1, {}]],
@@ -1146,6 +1315,8 @@
       legL: [[0, { x: 305, y: 612, w: 1 }], [0.04, { x: 305, y: 612, w: 1 }], [0.07, { x: 320, y: 600, w: 1 }], [0.1, { x: 338, y: 612, w: 1 }], [0.95, { x: 338, y: 612, w: 1 }], [0.98, { x: 320, y: 600, w: 1 }], [1, { x: 305, y: 612, w: 1 }]]
     },
     flat: { footR: 1, footL: 1 },
+    // Mientras las manos trabajan delante del cuerpo, de espaldas los brazos (y la roca) quedan detrás de la espalda
+    layers: [[0, {}], [0.105, { armR: 'fore', armL: 'fore' }], [0.895, {}]],
     expr: [[0, 'neutral'], [0.1, 'resoplido'], [0.22, 'esfuerzo'], [0.8, 'esfuerzo'], [0.86, 'resoplido'], [0.94, 'contento']]
   };
 
@@ -1204,7 +1375,7 @@
   ANIMS.front.wave = {
     duration: 2600, then: 'idle',
     tracks: {
-      handL: [[0, { v: 'relax' }], [0.14, { v: 'grip' }], [0.86, { v: 'relax' }]],
+      handL: [[0, { v: 'relax' }], [0.14, { v: 'open' }], [0.86, { v: 'relax' }]],
       head: [[0, {}], [0.2, { a: -4 }], [0.8, { a: -4 }], [1, {}]],
       torso: [[0, {}], [0.2, { a: -2 }], [0.8, { a: -2 }], [1, {}]],
       sashTailA: [[0, {}], [0.3, { a: 3 }], [0.6, { a: -2 }], [1, {}]],

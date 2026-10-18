@@ -2,15 +2,22 @@
   // Mira a la izquierda. Lado cercano = derecha de Goran (R); lado lejano (L) = mismo dibujo desplazado y oscurecido.
   const S = {};
 
-  S.pelvis = () => shape('M548 366 L654 366 C664 392 666 420 658 442 L560 442 C550 420 546 392 548 366 Z', C.trousers,
-    fill('M548 366 L664 366 L664 400 L548 400 Z', C.trousersDeep, .5));
+  // La pelvis sube hasta el cinturón: por la abertura lateral de la túnica se ve pantalón, no fondo.
+  S.pelvis = () => shape('M548 322 L654 322 L654 366 C664 392 666 420 658 442 L560 442 C550 420 546 392 548 366 Z', C.trousers,
+    fill('M540 318 L670 318 L670 400 L540 400 Z', C.trousersDeep, .5));
 
-  S.thighR = () => shape('M552 380 C546 420 544 460 546 500 L548 526 L648 526 C646 500 648 470 654 444 C660 424 662 402 658 380 Z', C.trousers,
-    fill('M630 380 L666 380 C664 420 656 450 652 480 C650 500 650 512 652 526 L636 526 C636 490 640 440 630 380 Z', C.trousersShade) +
-    fill('M540 380 L668 380 L668 418 C640 424 580 424 540 416 Z', C.trousersDeep, .5) +
+  // Rodilla (pivote 598,512) y cadera (600,404) redondeadas como en la vista frontal.
+  const THIGH_S = 'M548.9 404 C545.4 436 544.4 468 546 500 C546.4 505 546.5 508.5 546.5 512 C546.5 539.6 569.6 562 598 562' +
+    ' C625.1 562 647 539.6 647 512 C646.5 500 648 470 654 444 C657.8 431.3 660 417.8 660.1 404';
+  const thighDetailS = () =>
+    fill('M626 350 L668 350 C666 420 656 450 652 480 C650 500 650 520 652 570 L626 570 C632 548 636 536 636 526 C636 490 640 440 630 380 Z', C.trousersShade) +
+    fill('M540 340 L670 340 L670 418 C640 424 580 424 540 416 Z', C.trousersDeep, .5) +
     fill(rib([566, 430, 562, 456, 560, 482, 560, 508], 12, 4), C.trousersLight, .5) +
     line('M640 448 C620 460 600 470 578 476', C.trousersDeep, 1.5, .7) + line('M644 482 C626 490 606 496 586 498', C.trousersDeep, 1.4, .6) +
-    line('M552 452 C560 462 566 470 570 480', C.trousersDeep, 1.2, .5));
+    line('M552 452 C560 462 566 470 570 480', C.trousersDeep, 1.2, .5);
+  S.thighR = () => shape(THIGH_S + ' C660.1 372 632 352 600 352 C571.5 352 548.9 375 548.9 404 Z', C.trousers, thighDetailS(), 0) + line(THIGH_S, OUT, 2.2);
+  const KNEE_FILL_S = fill('M636.4 472 L670 472 L670 500 L636.2 500 Z', C.trousersShade) +
+    fill(rib([561, 476, 560.6, 484, 560.2, 492, 560, 500], 7.3, 4.8), C.trousersLight, .5) + line('M644 482 C626 490 606 496 586 498', C.trousersDeep, 1.4, .6);
 
   S.shinR = () => {
     const wraps = 'M562 536 C564 566 570 594 576 620 L628 622 C630 596 638 566 644 536 Z';
@@ -22,9 +29,11 @@
     }
     const wrapArt = shape(wraps, C.wraps, bands + fill('M618 530 L650 530 L650 626 L620 626 C626 596 626 566 618 530 Z', C.wrapsShade, .85) +
       strokes(36, 20, [564, 540, 76, 80], 3, 0, C.wrapsDeep, .7, .45), 1.9);
-    const cuffD = 'M552 500 C546 516 546 530 550 544' + fray([[550, 544], [572, 553], [598, 549], [622, 554], [646, 547]], 3, 8, 37, 1) + ' C652 530 652 514 648 500';
-    const cuff = shape(cuffD + ' Z', C.trousers,
-      fill('M540 530 C560 548 600 552 652 538 L656 570 L536 570 Z', C.trousersDeep, .55) + fill('M626 496 L656 496 L656 560 L630 560 C634 536 632 514 626 496 Z', C.trousersShade, .85) +
+    const cuffD = 'M548 512 C545 524 546 534 550 544' + fray([[550, 544], [572, 553], [598, 549], [622, 554], [646, 547]], 3, 8, 37, 1) + ' C652 534 651.5 522 648 512';
+    const dome = ' C646.5 496 638 484 624 478 C612 473 584 473 572 478 C558 484 549.5 496 548 512 Z';
+    const cuff = shape(cuffD + dome, C.trousers,
+      KNEE_FILL_S +
+      fill('M540 530 C560 548 600 552 652 538 L656 570 L536 570 Z', C.trousersDeep, .55) + fill('M626 500 L656 500 L656 560 L630 560 C634 536 632 514 626 500 Z', C.trousersShade, .85) +
       line('M552 520 C574 530 604 526 630 532 C640 534 646 532 650 526', C.trousersDeep, 1.4, .8) + line('M600 549 C602 540 606 534 612 530', C.trousersDeep, 1.2, .7), 0) + line(cuffD, OUT, 2.2);
     return wrapArt + cuff;
   };
@@ -36,22 +45,24 @@
       ell(552, 662, 15, 6, C.bootsLight, .6, -12) + fill('M534 664 C546 654 560 648 572 642 L576 650 C562 656 548 662 538 672 Z', C.bootsLight, .45) +
       line('M582 606 L572 614 M582 614 L572 606 M580 622 L568 630 M580 630 L568 622 M574 638 L560 646 M574 646 L562 638', C.cord, 1.5) +
       line('M576 650 C590 646 606 648 622 654', C.bootsDeep, 1.1, .6) + strokes(78, 10, [556, 610, 90, 60], 4, 30, C.bootsDeep, .8, .45)) +
-      shape('M571 596 L643 594 L642 610 L573 612 Z', C.boots, fill('M571 604 L643 602 L643 612 L571 614 Z', C.bootsShade, .8), 1.9) +
+      shape('M571 595 C592 599 622 599 643 593 L642 609 C622 614 592 615 573 611 Z', C.boots, fill('M569 603 C592 607 622 607 645 601 L645 617 L569 617 Z', C.bootsShade, .8), 1.9) +
       shape('M534 671 L654 671 L654 684 L546 684 C538 684 533 679 534 671 Z', C.sole, line('M540 676 L652 676', C.bootsShade, .9, .8, '3 2.5'), 1.9);
   };
 
   S.torso = () => {
     const skin = shape('M548 124 L594 124 L604 140 C590 146 572 150 556 160 C548 170 540 182 532 196 C534 170 540 146 548 124 Z', C.skin,
       fill('M540 124 L604 124 L604 140 L540 140 Z', C.skinShade, .6) + line('M548 150 C540 162 536 172 534 182', C.skinShade, 1.2), 2);
+    // La espalda llega hasta la línea del asiento y del faldón trasero (x ≈ 650 en la cintura, ≈ 657 en el omóplato)
     const d = 'M556 136' + fray([[556, 136], [538, 168], [524, 204]], 3, 6, 81, 1) +
-      ' C512 222 506 240 504 262 C503 276 503 290 504 304 L608 306 C612 276 618 240 624 206 C628 180 630 160 624 144 C610 136 590 132 572 132 Z';
+      ' C512 222 506 240 504 262 C503 276 503 290 504 304 L650 306 C653 282 656 252 657 226 C658 196 654 172 642 158 C630 145 610 137 590 134 C582 132.8 576 132 572 132 Z';
     let gathers = '';
-    [512, 528, 546, 564, 582, 598].forEach((x, i) => { gathers += line(`M${x} 304 L${x + (i % 2 ? 2 : -2)} ${288 - (i % 3) * 4}`, C.tunicShade, 1.4, .8); });
+    [512, 528, 546, 564, 582, 598, 616, 634].forEach((x, i) => { gathers += line(`M${x} 304 L${x + (i % 2 ? 2 : -2)} ${288 - (i % 3) * 4}`, C.tunicShade, 1.4, .8); });
     const tunic = shape(d, C.tunic,
-      fill('M596 132 L630 132 L630 310 L600 310 C608 260 606 190 596 132 Z', C.tunicShade, .9) +
-      ell(530, 236, 16, 34, C.tunicLight, .5, -8) + fill('M502 270 C520 276 560 278 610 272 L610 290 C560 296 520 292 502 286 Z', C.tunicShade, .45) +
-      line('M520 214 C536 232 548 254 556 290', C.tunicDeep, 1.3, .6) + line('M540 180 C556 200 568 224 576 252', C.tunicDeep, 1.2, .5) + gathers +
-      strokes(82, 22, [508, 150, 110, 150], 3, 80, C.tunicShade, .7, .35));
+      fill('M600 132 L664 132 L664 310 L624 310 C632 260 628 190 600 132 Z', C.tunicShade, .9) +
+      ell(530, 236, 16, 34, C.tunicLight, .5, -8) + fill('M502 270 C520 276 570 278 660 270 L660 290 C570 296 520 292 502 286 Z', C.tunicShade, .45) +
+      line('M520 214 C536 232 548 254 556 290', C.tunicDeep, 1.3, .6) + line('M540 180 C556 200 568 224 576 252', C.tunicDeep, 1.2, .5) +
+      line('M646 186 C640 214 638 246 640 290', C.tunicDeep, 1.2, .45) + gathers +
+      strokes(82, 26, [508, 150, 144, 150], 3, 80, C.tunicShade, .7, .35));
     return skin + tunic;
   };
 
@@ -59,14 +70,14 @@
     fill('M500 318 L570 318 L570 334 C546 330 524 330 500 336 Z', C.tunicShade, .85) + fill('M552 318 L572 318 L572 420 L556 420 C560 380 558 350 552 318 Z', C.tunicShade, .7) +
     line('M520 332 C516 356 512 378 508 398', C.tunicDeep, 1.3, .7) + line('M540 334 C540 360 538 384 536 402', C.tunicDeep, 1.3, .7));
 
-  S.hemBack = () => shape('M598 318 L640 318 C654 342 664 372 672 404' + fray([[672, 404], [636, 410], [598, 406]], 13, 10, 84, 1) + ' L598 318 Z', C.tunicShade,
-    line('M618 330 C626 356 634 380 640 404', C.tunicDeep, 1.3, .7) + line('M640 330 C648 352 656 374 662 398', C.tunicDeep, 1.2, .6) + fill('M598 318 L660 318 L660 334 L598 334 Z', C.tunicDeep, .4));
+  S.hemBack = () => shape('M598 318 L650 318 C660 342 668 372 675 404' + fray([[675, 404], [636, 410], [598, 406]], 13, 10, 84, 1) + ' L598 318 Z', C.tunicShade,
+    line('M618 330 C626 356 634 380 640 404', C.tunicDeep, 1.3, .7) + line('M642 330 C650 352 658 374 664 398', C.tunicDeep, 1.2, .6) + fill('M598 318 L672 318 L672 334 L598 334 Z', C.tunicDeep, .4));
 
-  S.belt = () => shape('M502 294 C540 300 580 302 610 300 L612 340 C580 344 540 342 500 336 Z', C.sash,
-      line('M504 299 C540 305 580 307 608 305', C.sashShade, 1.4, .8) + line('M502 331 C540 337 580 339 610 335', C.sashShade, 1.4, .8) + fill('M500 326 L612 326 L612 346 L500 346 Z', C.sashShade, .45)) +
-    shape('M501 305 C540 310 580 312 611 310 L611 330 C580 332 540 330 501 325 Z', C.leather,
-      fill('M500 318 L612 318 L612 334 L500 334 Z', C.leatherShade, .7) + line('M503 308.5 C540 313.5 580 315.5 609 313.5', C.leatherLight, 1, .8, '3 2.5') +
-      line('M503 321.5 C540 326.5 580 328.5 609 326.5', C.leatherShade, 1, .9, '3 2.5')) +
+  S.belt = () => shape('M502 294 C550 301 610 302 652 296 L655 338 C612 345 548 344 500 336 Z', C.sash,
+      line('M504 299 C550 305.5 610 307 650 301', C.sashShade, 1.4, .8) + line('M502 331 C550 338 612 340 653 333', C.sashShade, 1.4, .8) + fill('M500 326 L658 326 L658 348 L500 348 Z', C.sashShade, .45)) +
+    shape('M501 305 C550 311 610 313 653 307.5 L653.5 327.5 C610 333 550 331 501 325 Z', C.leather,
+      fill('M500 318 L656 318 L656 334 L500 334 Z', C.leatherShade, .7) + line('M503 308.5 C550 314.5 610 316.5 651 311', C.leatherLight, 1, .8, '3 2.5') +
+      line('M503 321.5 C550 327.5 610 329.5 651 324', C.leatherShade, 1, .9, '3 2.5')) +
     shape('M497 302 L506 303 L506 328 L497 327 Z', C.iron, line('M499 304 L499 326', C.ironLight, 1.2), 1.6);
 
   S.sashTailB = () => shape('M534 332 C536 362 538 400 542 440' + fray([[542, 440], [560, 436]], 10, 6, 85, 1) + ' C558 400 556 362 554 332 Z', C.sashShade,
@@ -232,4 +243,7 @@
     legR: { bones: ['thighR', 'shinR', 'footR'], bend: -1 },
     legL: { bones: ['thighL', 'shinL', 'footL'], bend: -1 }
   };
-  const FIRST_SIDE = { torso: ['upperArmL'], handR: ['hammer'], handL: ['flask'] };
+  // Capas de perfil, por profundidad: brazo lejano → pierna lejana → pelvis → pierna cercana → tronco y cabeza → brazo cercano.
+  const LAYERS_SIDE = ['root', 'upperArmL', 'forearmL', 'flask', 'handL', 'thighL', 'shinL', 'footL', 'pelvis', 'thighR', 'shinR', 'footR',
+    'torso', 'hemBack', 'hemFront', 'belt', 'sashTailB', 'sashTailA', 'neck', 'pendant', 'ponytail', 'hairBack', 'face', 'beard', 'mouth',
+    'mustache', 'eyeR', 'browR', 'hairFront', 'headband', 'upperArmR', 'forearmR', 'hammer', 'handR'];

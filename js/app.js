@@ -280,6 +280,9 @@
   g.pose({ head: { a: -6 }, handL: { v: 'grip' } },
          { ik: { armL: { x: 380, y: 120, w: 1 } } });
 
+  // IK 3D: z = profundidad de la mano (+ hacia ti), px/py/pz = hacia dónde apunta el codo
+  g.pose({}, { ik: { armL: { x: 300, y: 120, z: 90, px: 1, py: 0.4, pz: 0 } } });
+
   // Animación propia: solo datos
   Goran.ANIMS.front.flexionar = {
     duration: 1800, then: 'idle',

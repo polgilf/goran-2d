@@ -120,7 +120,8 @@
       <div>
         <h2>Rig</h2>
         <p class="note"><b>R</b> es la derecha anatómica de Goran (izquierda del espectador en la vista frontal). Las piezas L reutilizan el dibujo R reflejado. Cada pieza gira y escala sobre su pivote y arrastra a sus hijas; <code>qx/qy</code> escalan solo el dibujo de esa pieza, útil para encoger el torso al inclinarse sin acortar los brazos.</p>
-        <p class="note">Cadenas IK: <code>armR</code>, <code>armL</code>, <code>legR</code>, <code>legL</code>. Los codos y rodillas se doblan hacia fuera en frente y espalda; en perfil las rodillas van hacia delante y los codos hacia atrás.</p>
+        <p class="note">Cadenas IK: <code>armR</code>, <code>armL</code>, <code>legR</code>, <code>legL</code>. Los codos y rodillas se doblan hacia fuera en frente y espalda; en perfil las rodillas van hacia delante y los codos hacia atrás. Si la clave lleva profundidad (<code>z</code>) y polo del codo (<code>px, py, pz</code>), la cadena se resuelve en 3D y se proyecta: el codo no da la vuelta y el húmero se escorza (canal <code>k</code>) cuando apunta al espectador.</p>
+        <p class="note">Capas: cada vista tiene su orden de dibujo, independiente de la jerarquía. En perfil, brazo lejano, pierna lejana, cuerpo y brazo cercano; de espaldas, lo que va delante del cuerpo (roca, fajín) queda detrás. Las animaciones pueden cambiar de estado (pista <code>layers</code>): con <code>{ armR: 'fore' }</code> el brazo trabaja delante del cuerpo y de espaldas pasa tras la espalda.</p>
         <div class="tbl"><table>
           <thead><tr><th>id</th><th>padre</th><th>pivote</th><th>variantes</th><th>pieza</th></tr></thead>
           <tbody id="rigrows"></tbody>

@@ -49,12 +49,27 @@
     legR: { bones: ['thighR', 'shinR', 'footR'], bend: -1 },
     legL: { bones: ['thighL', 'shinL', 'footL'], bend: 1 }
   };
-  const FIRST_FRONT = { handR: ['hammer'], handL: ['flask'] };
+
+  // ── Capas (orden de dibujo, del fondo al frente) ──
+  // El orden es independiente de la jerarquía: cada pieza se dibuja con su matriz de mundo.
+  const HEAD_FRONT = ['ponytail', 'hairBack', 'face', 'beard', 'mouth', 'mustache', 'nose', 'eyeR', 'eyeL', 'browR', 'browL', 'hairFront', 'headband'];
+  const ARM_R = ['upperArmR', 'forearmR', 'hammer', 'handR'], ARM_L = ['upperArmL', 'forearmL', 'flask', 'handL'];
+  const LAYERS_FRONT = ['root', 'pelvis', 'thighR', 'shinR', 'footR', 'thighL', 'shinL', 'footL',
+    'torso', 'hemR', 'hemL', 'belt', 'sashTailB', 'sashTailA', 'sashKnot', 'neck', 'pendant', ...HEAD_FRONT, 'rock', ...ARM_R, ...ARM_L, 'dust'];
+  // De espaldas, lo que está delante del cuerpo (roca, polvo de la roca, fajín anudado delante) queda detrás.
+  const LAYERS_BACK = ['root', 'rock', 'dust', 'sashTailB', 'sashTailA', 'sashKnot', 'thighR', 'shinR', 'footR', 'thighL', 'shinL', 'footL',
+    'pelvis', 'torso', 'hemR', 'hemL', 'belt', 'neck', 'pendant', 'hairBack', 'face', 'ponytail', 'beard', 'mouth', 'mustache', 'nose',
+    'eyeR', 'eyeL', 'browR', 'browL', 'hairFront', 'headband', ...ARM_R, ...ARM_L];
+  // Estados de capa que activan las animaciones (pista "layers"). fore = el brazo trabaja delante del cuerpo:
+  // de frente no cambia nada; de espaldas el brazo (y lo que sujeta) pasa detrás del cuerpo y de la cabeza.
+  const RULES_BACK = {
+    armR: { fore: { move: ARM_R, after: 'dust' } },
+    armL: { fore: { move: ARM_L, after: 'dust' } }
+  };
 
   // ═══════════════════════════════ MOTOR ═══════════════════════════════
   const D2R = Math.PI / 180;
-  const KEYS = ['a', 'dx', 'dy', 'sx', 'sy', 'qx', 'qy', 'o'];
-  const DEF = { a: 0, dx: 0, dy: 0, sx: 1, sy: 1, qx: 1, qy: 1, o: 1 };
+  const DEF = { a: 0, dx: 0, dy: 0, sx: 1, sy: 1, qx: 1, qy: 1, k: 1, o: 1 };
   const EASE = {
     linear: t => t, in: t => t * t * t, out: t => 1 - Math.pow(1 - t, 3),
     inout: t => 0.5 - 0.5 * Math.cos(Math.PI * t), back: t => { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); }
@@ -67,6 +82,15 @@
     const a = s.a * D2R, c = Math.cos(a), n = Math.sin(a);
     const A = c * s.sx, B = n * s.sx, Cc = -n * s.sy, Dd = c * s.sy;
     return [A, B, Cc, Dd, ox + s.dx + p[0] - (A * p[0] + Cc * p[1]), oy + s.dy + p[1] - (B * p[0] + Dd * p[1])];
+  }
+  // Matriz solo del dibujo (sin arrastrar el marco de las hijas): escala qx/qy y escorzo k a lo largo del eje del hueso.
+  // k < 1 acorta la pieza en su eje sin adelgazarla, como un hueso que apunta hacia el espectador.
+  function artM(p, s) {
+    const b = p.axis, f = s.k - 1;
+    const K = [1 + f * b[0] * b[0], f * b[0] * b[1], f * b[0] * b[1], 1 + f * b[1] * b[1], 0, 0];
+    const A = mul(K, [s.qx, 0, 0, s.qy, 0, 0]);
+    A[4] = p.pivot[0] - (A[0] * p.pivot[0] + A[2] * p.pivot[1]); A[5] = p.pivot[1] - (A[1] * p.pivot[0] + A[3] * p.pivot[1]);
+    return A;
   }
   const normA = a => { a = (a + 180) % 360; if (a < 0) a += 360; return a - 180; };
   const lerpA = (a, b, w) => a + normA(b - a) * w;
@@ -96,3 +120,16 @@
     return out;
   }
   function sampleDiscrete(track, t) { let v = track[0][1]; for (const [tt, val] of track) if (tt <= t) v = val; return v; }
+
+  // Orden de dibujo de una vista para un estado de capas ({grupo: estado}).
+  function layerOrder(V, state) {
+    let order = V.layers.slice();
+    if (state && V.layerRules) Object.keys(state).forEach(grp => {
+      const r = V.layerRules[grp] && V.layerRules[grp][state[grp]];
+      if (!r) return;
+      order = order.filter(id => !r.move.includes(id));
+      const at = order.indexOf(r.before || r.after) + (r.after ? 1 : 0);
+      order.splice(at, 0, ...r.move);
+    });
+    return order;
+  }
